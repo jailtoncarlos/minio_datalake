@@ -7,7 +7,7 @@ This project is an abstraction for working with DataLake using MinIO and PySpark
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/minio-datalake.git
+   git@github.com:jailtoncarlos/minio_datalake.git
    cd minio-datalake
    ```
 
