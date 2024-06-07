@@ -1,17 +1,20 @@
-# test_datalake.py
 import unittest
 from unittest.mock import patch
-from datalake import MinIODatalake
-import settings
-
 import logging
-logger = logging.getLogger(__name__)
+from datalake import MinIODatalake
+import settings as settings
 
+# Configurar logging para exibir apenas mensagens de debug do próprio teste
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.handlers = [handler]
 
 class TestMinIODatalake(unittest.TestCase):
     @patch('minio.Minio.bucket_exists')
     def test_buckets_exist(self, mock_bucket_exists):
-
         # Log the settings being used
         logger.debug(f"Using settings: MINIO_URL={settings.MINIO_URL}, ACCESS_KEY={settings.ACCESS_KEY}, SECRET_KEY={settings.SECRET_KEY}")
         logger.debug(f"RAW_BUCKET: {settings.RAW_BUCKET}")
@@ -35,9 +38,7 @@ class TestMinIODatalake(unittest.TestCase):
         self.assertTrue(stage_bucket_exists, "Bucket 'stage' should exist")
 
         # Check if a non-existent bucket does not exist
-        self.assertFalse(datalake.get_bucket('non_existent_bucket').bucket_exists(),
-                         "Bucket 'non_existent_bucket' should not exist")
-
+        self.assertFalse(datalake.get_bucket('non_existent_bucket').bucket_exists(), "Bucket 'non_existent_bucket' should not exist")
 
 if __name__ == '__main__':
     unittest.main()
