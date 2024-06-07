@@ -1,6 +1,3 @@
-### README.md
-
-```markdown
 # MinIO DataLake
 
 This project is an abstraction for working with DataLake using MinIO and PySpark. It provides classes and methods to interact with buckets and objects in MinIO, as well as to load CSV files, convert them to Parquet, and create temporary views in Spark.
@@ -65,4 +62,4 @@ To run the tests, use the following command:
 ```bash
 python -m unittest discover
 ```
-```
+
