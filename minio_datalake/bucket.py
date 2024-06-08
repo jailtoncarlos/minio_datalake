@@ -1,6 +1,11 @@
-from minio.datatypes import Bucket
-from minio_datalake.client import MinIOClient
+# arquivo bucket.py
 
+import re
+from typing import Iterator, Optional, List, BinaryIO
+
+from minio import Minio
+from minio.datatypes import Object
+from minio.helpers import ObjectWriteResult
 
 class MinIOBucket:
     """
@@ -10,15 +15,60 @@ class MinIOBucket:
     client: Instance of the MinIO client.
     bucket_name: Name of the bucket.
     """
-    def __init__(self, client: MinIOClient, bucket_name: str):
-        self.client = client
-        self.bucket_name = bucket_name
+    def __init__(self, client: Minio, bucket_name: str):
+        self._client = client
+        self._bucket_name = bucket_name
 
-    def create(self):
+    @property
+    def bucket_name(self) -> str:
+        return self._bucket_name
+
+    def _validate_bucket_name(self, bucket_name: str) -> bool:
         """
-        Create a bucket if it does not exist.
+        Validate the bucket name according to MinIO rules.
+
+        Parameters:
+        bucket_name (str): Name of the bucket.
+
+        Returns:
+        bool: True if the bucket name is valid, False otherwise.
         """
-        self.client.make_bucket(self.bucket_name)
+        if not (3 <= len(bucket_name) <= 63):
+            return False
+
+        if not re.match(r'^[a-z0-9][a-z0-9.-]*[a-z0-9]$', bucket_name):
+            return False
+
+        if '..' in bucket_name:
+            return False
+
+        return True
+
+    def make(self, *args, **kwargs):
+        """
+        Create a bucket if it does not exist, ensuring the name is valid.
+        """
+        if not self._validate_bucket_name(self._bucket_name):
+            raise ValueError(f"Invalid bucket name: {self._bucket_name}")
+
+        self._client.make_bucket(self._bucket_name, *args, **kwargs)
+
+    def remove(self):
+        self._client.remove_bucket(self._bucket_name)
+
+    def put_object(
+        self,
+        object_name: str,
+        data: BinaryIO,
+        length: int, *args, **kwargs)-> ObjectWriteResult:
+
+        return self._client.put_object(self._bucket_name, object_name, data, length, *args, **kwargs)
+
+    def remove_object(
+        self,
+        object_name: str, *args, **kwargs
+    ):
+        self._client.remove_object(self._bucket_name, object_name, *args, **kwargs)
 
     def exists(self) -> bool:
         """
@@ -27,9 +77,9 @@ class MinIOBucket:
         Returns:
         bool: True if the bucket exists, False otherwise.
         """
-        return self.client.bucket_exists(self.bucket_name)
+        return self._client.bucket_exists(self._bucket_name)
 
-    def list_objects(self, prefix=None, recursive=False):
+    def list_objects(self, prefix: Optional[str] = None, recursive: bool = False) -> Iterator[Object]:
         """
         List objects in the bucket.
 
@@ -38,6 +88,20 @@ class MinIOBucket:
         recursive (bool): If True, list objects recursively.
 
         Returns:
-        list: List of objects.
+        Iterator[Object]: Iterator of objects.
         """
-        return self.client.client.list_objects(self.bucket_name, prefix=prefix, recursive=recursive)
+        return self._client.list_objects(self._bucket_name, prefix=prefix, recursive=recursive)
+
+    def list_object_names(self, prefix: Optional[str] = None, recursive: bool = False) -> List[str]:
+        """
+        List names of objects in the bucket.
+
+        Parameters:
+        prefix (str): Prefix of the objects.
+        recursive (bool): If True, list objects recursively.
+
+        Returns:
+        List[str]: List of object names.
+        """
+        objects = self.list_objects(prefix=prefix, recursive=recursive)
+        return [obj.object_name for obj in objects]

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 import logging
-from minio_datalake.datalake import MinIODatalake
+from minio_datalake.datalake import MinIOSparkDatalake
 from minio_datalake import settings as settings
 
 
@@ -18,7 +18,7 @@ class TestMinIODatalake(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.datalake = MinIODatalake()
+        cls.datalake = MinIOSparkDatalake()
 
     def test_buckets_exist_or_create(self):
         raw_bucket = self.datalake.get_bucket(settings.RAW_BUCKET)

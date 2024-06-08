@@ -63,11 +63,11 @@ export MINIO_SECRET_KEY='minioadmin'
 ## Usage
 
 ```python
-from minio_datalake.datalake import MinIODatalake
+from minio_datalake.datalake import MinIOSparkDatalake
 import minio_datalake.settings as settings
 
 # Create an instance of MinIODatalake
-datalake = MinIODatalake()
+datalake = MinIOSparkDatalake()
 
 # Get bucket instances
 raw_bucket = datalake.get_bucket(settings.RAW_BUCKET)
