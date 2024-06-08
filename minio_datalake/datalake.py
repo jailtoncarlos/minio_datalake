@@ -3,6 +3,7 @@ import zipfile
 from io import BytesIO
 from typing import List
 from minio import Minio
+from pyspark import SparkConf
 from pyspark.sql import SparkSession, DataFrame
 from .bucket import MinIOBucket
 from .object import MinIOObject
@@ -24,17 +25,12 @@ class MinIOSparkDatalake:
 
     def __init__(self, endpoint=settings.MINIO_ENDPOINT, access_key=settings.MINIO_ACCESS_KEY, secret_key=settings.MINIO_SECRET_KEY, use_ssl=settings.MINIO_USE_SSL) -> None:
         self._client = Minio(endpoint, access_key, secret_key, secure=use_ssl)
-        self._spark = SparkSession.builder \
-            .appName("MinIODatalake") \
-            .config("spark.hadoop.fs.s3.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
-            .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider") \
-            .config("spark.hadoop.fs.s3a.access.key", access_key) \
-            .config("spark.hadoop.fs.s3a.secret.key", secret_key) \
-            .config("spark.hadoop.fs.s3a.endpoint", f"http://{endpoint}") \
-            .config("spark.hadoop.fs.s3a.path.style.access", "true") \
-            .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false") \
-            .config("spark.jars.packages", "com.amazonaws:aws-java-sdk-bundle:1.12.262,org.postgresql:postgresql:42.1.1,org.apache.hadoop:hadoop-common:3.3.4,org.apache.hadoop:hadoop-aws:3.3.4") \
-            .getOrCreate()
+
+        # Configure Spark to use MinIO
+        conf = SparkConf().setAppName("MinIODatalake")
+        for key, value in settings.SPARK_CONF.items():
+            conf.set(key, value)
+        self._spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     @property
     def client(self) -> Minio:
@@ -85,27 +81,14 @@ class MinIOSparkDatalake:
         Returns:
         DataFrame: Spark DataFrame.
         """
-        zip_buffer = BytesIO()
-        zip_data = minio_object.client.get_object(minio_object.bucket_name, minio_object.object_name).read()
-        zip_buffer.write(zip_data)
-        zip_buffer.seek(0)
+        extracted_objects = self.unzip(minio_object, extract_to_bucket=False)
+        csv_files = [obj for obj in extracted_objects if obj.object_name.endswith('.csv')]
 
-        with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
-            csv_files = [f for f in zip_ref.namelist() if f.endswith('.csv')]
-            if not csv_files:
-                raise ValueError("No CSV files found in the ZIP archive.")
+        if not csv_files:
+            raise ValueError("No CSV files found in the ZIP archive.")
 
-            csv_file = csv_files[0]  # Assuming we want the first CSV file found
-            csv_path = f"s3a://{minio_object.bucket_name}/{csv_file}"
-
-            with zip_ref.open(csv_file) as csv_file_ref:
-                csv_data = csv_file_ref.read()
-                temp_csv_path = f"/tmp/{csv_file}"
-                with open(temp_csv_path, 'wb') as temp_csv:
-                    temp_csv.write(csv_data)
-
-            df = self.spark.read.format("csv").option("header", "true").load(temp_csv_path)
-            return df
+        df = self.spark.read.format("csv").option("header", "true").load([f"s3a://{obj.bucket_name}/{obj.object_name}" for obj in csv_files])
+        return df
 
     def read_csv_to_dataframe(self, minio_object: MinIOObject) -> DataFrame:
         """
@@ -165,3 +148,31 @@ class MinIOSparkDatalake:
         df.createOrReplaceTempView(temp_view_name)
 
         return df
+
+    def unzip(self, minio_object: MinIOObject, extract_to_bucket: bool = False) -> List[MinIOObject]:
+        """
+        Unzip a file in the MinIO bucket.
+
+        Parameters:
+        minio_object (MinIOObject): MinIOObject representing the zip file.
+        extract_to_bucket (bool): If True, extract to the root of the bucket. If False, extract to a subdirectory with the name of the zip file.
+
+        Returns:
+        list: List of MinIOObjects for the extracted files.
+        """
+        zip_buffer = BytesIO()
+        zip_data = self.client.get_object(minio_object.bucket_name, minio_object.object_name).read()
+        zip_buffer.write(zip_data)
+        zip_buffer.seek(0)
+
+        destination_path = f'{minio_object.bucket_name}/{os.path.splitext(minio_object.object_name)[0]}' if not extract_to_bucket else minio_object.bucket_name
+
+        extracted_objects = []
+        with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
+            for file_name in zip_ref.namelist():
+                file_data = zip_ref.read(file_name)
+                file_path = f'{destination_path}/{file_name}'
+                self.client.put_object(minio_object.bucket_name, file_path, BytesIO(file_data), len(file_data))
+                extracted_objects.append(MinIOObject(self.client, minio_object.bucket_name, file_path))
+
+        return extracted_objects
