@@ -7,6 +7,9 @@ from minio import Minio
 from minio.datatypes import Object
 from minio.helpers import ObjectWriteResult
 
+from minio_datalake.utils import MinIOUtils
+
+
 class MinIOBucket:
     """
     Class to represent a MinIO bucket.
@@ -23,32 +26,11 @@ class MinIOBucket:
     def bucket_name(self) -> str:
         return self._bucket_name
 
-    def _validate_bucket_name(self, bucket_name: str) -> bool:
-        """
-        Validate the bucket name according to MinIO rules.
-
-        Parameters:
-        bucket_name (str): Name of the bucket.
-
-        Returns:
-        bool: True if the bucket name is valid, False otherwise.
-        """
-        if not (3 <= len(bucket_name) <= 63):
-            return False
-
-        if not re.match(r'^[a-z0-9][a-z0-9.-]*[a-z0-9]$', bucket_name):
-            return False
-
-        if '..' in bucket_name:
-            return False
-
-        return True
-
     def make(self, *args, **kwargs):
         """
         Create a bucket if it does not exist, ensuring the name is valid.
         """
-        if not self._validate_bucket_name(self._bucket_name):
+        if not MinIOUtils.validate_bucket_name(self._bucket_name):
             raise ValueError(f"Invalid bucket name: {self._bucket_name}")
 
         self._client.make_bucket(self._bucket_name, *args, **kwargs)

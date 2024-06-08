@@ -1,9 +1,9 @@
 import os
 import zipfile
 from io import BytesIO
-
+from typing import List
 from minio import Minio
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, DataFrame
 from .bucket import MinIOBucket
 from .object import MinIOObject
 from .utils import split_minio_path
@@ -24,7 +24,17 @@ class MinIOSparkDatalake:
 
     def __init__(self, endpoint=settings.MINIO_ENDPOINT, access_key=settings.MINIO_ACCESS_KEY, secret_key=settings.MINIO_SECRET_KEY, use_ssl=settings.MINIO_USE_SSL) -> None:
         self._client = Minio(endpoint, access_key, secret_key, secure=use_ssl)
-        self._spark = SparkSession.builder.appName("MinIODatalake").getOrCreate()
+        self._spark = SparkSession.builder \
+            .appName("MinIODatalake") \
+            .config("spark.hadoop.fs.s3.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+            .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider") \
+            .config("spark.hadoop.fs.s3a.access.key", access_key) \
+            .config("spark.hadoop.fs.s3a.secret.key", secret_key) \
+            .config("spark.hadoop.fs.s3a.endpoint", f"http://{endpoint}") \
+            .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+            .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false") \
+            .config("spark.jars.packages", "com.amazonaws:aws-java-sdk-bundle:1.12.262,org.postgresql:postgresql:42.1.1,org.apache.hadoop:hadoop-common:3.3.4,org.apache.hadoop:hadoop-aws:3.3.4") \
+            .getOrCreate()
 
     @property
     def client(self) -> Minio:
@@ -65,50 +75,53 @@ class MinIOSparkDatalake:
         """
         return MinIOObject(self.client, bucket_name, object_name)
 
-    def extract_zip_to_datalake(self, path: str, extract_to_bucket: bool = False) -> str:
+    def read_csv_from_zip(self, minio_object: MinIOObject) -> DataFrame:
         """
-        Extract a zip file from MinIO and upload its contents to the destination path in MinIO.
+        Read a CSV file from a ZIP archive in MinIO and return a Spark DataFrame.
 
         Parameters:
-        path (str): Path to the zip file in MinIO.
-        extract_to_bucket (bool): If True, extract to the root of the bucket. If False, extract to a subdirectory with the name of the zip file.
-
-        Returns:
-        str: Path to the extracted files in MinIO.
-        """
-        bucket_name, object_name = split_minio_path(path)
-        local_zip_path = BytesIO()
-        self.client.fget_object(bucket_name, object_name, local_zip_path)
-        local_zip_path.seek(0)  # Reset buffer position to the beginning
-
-        destination_path = f'{bucket_name}/{os.path.splitext(object_name)[0]}' if not extract_to_bucket else bucket_name
-
-        with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
-            for file_name in zip_ref.namelist():
-                file_data = zip_ref.read(file_name)
-                file_path = f'{destination_path}/{file_name}'
-                self.client.put_object(bucket_name, file_path, BytesIO(file_data), len(file_data))
-
-        return destination_path
-
-    def read_csv_to_dataframe(self, path: str, delimiter=','):
-        """
-        Read a CSV file from MinIO and return a Spark DataFrame.
-
-        Parameters:
-        path (str): Path to the CSV file.
-        delimiter (str): CSV delimiter.
+        minio_object (MinIOObject): MinIOObject representing the ZIP file.
 
         Returns:
         DataFrame: Spark DataFrame.
         """
-        bucket_name, object_name = split_minio_path(path)
-        csv_data = BytesIO()
-        self.client.fget_object(bucket_name, object_name, csv_data)
-        csv_data.seek(0)  # Reset buffer position to the beginning
-        return self.spark.read.options(delimiter=delimiter, header=True).csv(csv_data)
+        zip_buffer = BytesIO()
+        zip_data = minio_object.client.get_object(minio_object.bucket_name, minio_object.object_name).read()
+        zip_buffer.write(zip_data)
+        zip_buffer.seek(0)
 
-    def dataframe_to_parquet(self, df, path: str) -> str:
+        with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
+            csv_files = [f for f in zip_ref.namelist() if f.endswith('.csv')]
+            if not csv_files:
+                raise ValueError("No CSV files found in the ZIP archive.")
+
+            csv_file = csv_files[0]  # Assuming we want the first CSV file found
+            csv_path = f"s3a://{minio_object.bucket_name}/{csv_file}"
+
+            with zip_ref.open(csv_file) as csv_file_ref:
+                csv_data = csv_file_ref.read()
+                temp_csv_path = f"/tmp/{csv_file}"
+                with open(temp_csv_path, 'wb') as temp_csv:
+                    temp_csv.write(csv_data)
+
+            df = self.spark.read.format("csv").option("header", "true").load(temp_csv_path)
+            return df
+
+    def read_csv_to_dataframe(self, minio_object: MinIOObject) -> DataFrame:
+        """
+        Read a CSV file from MinIO and return a Spark DataFrame.
+
+        Parameters:
+        minio_object (MinIOObject): MinIOObject representing the CSV file.
+
+        Returns:
+        DataFrame: Spark DataFrame.
+        """
+        csv_path = f"s3a://{minio_object.bucket_name}/{minio_object.object_name}"
+        df = self.spark.read.options(header='true').csv(csv_path)
+        return df
+
+    def dataframe_to_parquet(self, df: DataFrame, path: str) -> str:
         """
         Convert a Spark DataFrame to Parquet and save it to MinIO.
 
@@ -119,19 +132,16 @@ class MinIOSparkDatalake:
         Returns:
         str: Path to the Parquet file in MinIO.
         """
-        bucket_name, object_name = split_minio_path(path)
-        local_parquet_path = BytesIO()
-        df.write.parquet(local_parquet_path)
-        local_parquet_path.seek(0)  # Reset buffer position to the beginning
-        self.client.put_object(bucket_name, object_name, local_parquet_path, len(local_parquet_path.getvalue()))
-        return f'{bucket_name}/{object_name}'
+        parquet_path = f"s3a://{path}"
+        df.write.mode('overwrite').parquet(parquet_path)
+        return path
 
-    def ingest_csv_to_datalake(self, path: str, destination_path: str = 'stage', temp_view_name: str = None, delimiter=','):
+    def ingest_csv_to_datalake(self, minio_object: MinIOObject, destination_path: str = 'stage', temp_view_name: str = None, delimiter=',') -> DataFrame:
         """
         Ingest a CSV file to the MinIO DataLake, converting it to Parquet and creating a temporary view in Spark.
 
         Parameters:
-        path (str): Path to the CSV file.
+        minio_object (MinIOObject): MinIOObject representing the CSV file.
         destination_path (str): Path to the destination directory in MinIO.
         temp_view_name (str): Name of the temporary view in Spark.
         delimiter (str): CSV delimiter.
@@ -139,20 +149,19 @@ class MinIOSparkDatalake:
         Returns:
         DataFrame: Spark DataFrame.
         """
-        bucket_name, object_name = split_minio_path(path)
-        parquet_path = f'{destination_path}/{os.path.splitext(object_name)[0]}.parquet'
+        parquet_path = f'{destination_path}/{os.path.splitext(minio_object.object_name)[0]}.parquet'
 
         bucket = self.get_bucket(destination_path)
         if not bucket.exists():
-            bucket.create()
+            bucket.make()
 
-        df = self.read_csv_to_dataframe(path, delimiter)
-        self.dataframe_to_parquet(df, f'/{parquet_path}')
+        df = self.read_csv_to_dataframe(minio_object)
+        self.dataframe_to_parquet(df, f'{parquet_path}')
 
-        df = self.spark.read.parquet(parquet_path)
+        df = self.spark.read.parquet(f's3a://{parquet_path}')
 
         if temp_view_name is None:
-            temp_view_name = os.path.splitext(object_name)[0]
+            temp_view_name = os.path.splitext(minio_object.object_name)[0]
         df.createOrReplaceTempView(temp_view_name)
 
         return df

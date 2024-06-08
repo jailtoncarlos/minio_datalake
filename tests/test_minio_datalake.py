@@ -1,74 +1,75 @@
 import unittest
-from unittest.mock import patch, MagicMock
 from io import BytesIO
-from pyspark.sql import SparkSession
+import zipfile
+from minio_datalake.client import MinIOClient
 from minio_datalake.datalake import MinIOSparkDatalake
-from minio_datalake.bucket import MinIOBucket
 from minio_datalake.object import MinIOObject
+import minio_datalake.settings as settings
+import logging
 
-class TestMinIODatalake(unittest.TestCase):
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    @patch('minio_datalake.datalake.MinIOClient')
-    @patch('minio_datalake.datalake.SparkSession')
-    def setUp(self, MockSparkSession, MockMinIOClient):
-        self.mock_spark = MockSparkSession.builder.appName().getOrCreate()
-        self.mock_client = MockMinIOClient.return_value
-        self.datalake = MinIOSparkDatalake()
 
-    @patch('minio_datalake.datalake.zipfile.ZipFile')
-    @patch('minio_datalake.datalake.MinIOClient.put_object')
-    @patch('minio_datalake.datalake.MinIOClient.fget_object')
-    def test_extract_zip_to_datalake(self, mock_fget_object, mock_put_object, MockZipFile):
-        mock_fget_object.return_value = None
-        mock_zip = MagicMock()
-        MockZipFile.return_value.__enter__.return_value = mock_zip
-        mock_zip.namelist.return_value = ['file1.txt', 'file2.txt']
-        mock_zip.read.side_effect = [b'Test data 1', b'Test data 2']
+class TestMinIOSparkDatalake(unittest.TestCase):
 
-        result = self.datalake.extract_zip_to_datalake('/raw/titanic-3.zip')
-        mock_fget_object.assert_called_once()
-        mock_put_object.assert_any_call('raw/titanic-3', 'file1.txt', BytesIO(b'Test data 1'), len(b'Test data 1'))
-        mock_put_object.assert_any_call('raw/titanic-3', 'file2.txt', BytesIO(b'Test data 2'), len(b'Test data 2'))
-        self.assertEqual(result, 'raw/titanic-3')
+    @classmethod
+    def setUpClass(cls):
+        cls.datalake = MinIOSparkDatalake(settings.MINIO_ENDPOINT, settings.MINIO_ACCESS_KEY, settings.MINIO_SECRET_KEY,
+                                          settings.MINIO_USE_SSL)
+        cls.bucket_name = 'test-bucket'
+        cls.zip_object_name = 'test.zip'
+        cls.csv_object_name = 'test.csv'
+        cls.bucket = cls.datalake.get_bucket(cls.bucket_name)
 
-    @patch('minio_datalake.datalake.MinIOClient')
-    def test_get_client(self, MockMinIOClient):
-        client = self.datalake.get_client()
-        self.assertEqual(client, self.mock_client)
+        if not cls.bucket.exists():
+            cls.bucket.make()
 
-    @patch('minio_datalake.datalake.MinIOBucket', spec=MinIOBucket)
-    def test_get_bucket(self, MockMinIOBucket):
-        bucket = self.datalake.get_bucket('test_bucket')
-        MockMinIOBucket.assert_called_once_with(self.mock_client, 'test_bucket')
-        self.assertIsInstance(bucket, MinIOBucket)
+        # Create a test CSV and ZIP object in MinIO
+        data = BytesIO(b'col1,col2\nval1,val2\nval3,val4')
+        cls.bucket.put_object(cls.csv_object_name, data, len(data.getvalue()))
 
-    @patch('minio_datalake.datalake.MinIOObject', spec=MinIOObject)
-    def test_get_object(self, MockMinIOObject):
-        obj = self.datalake.get_object('test_bucket', 'test_object')
-        MockMinIOObject.assert_called_once_with(self.mock_client, 'test_bucket', 'test_object')
-        self.assertIsInstance(obj, MinIOObject)
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+            zip_file.writestr(cls.csv_object_name, data.getvalue())
+        zip_buffer.seek(0)
+        cls.bucket.put_object(cls.zip_object_name, zip_buffer, len(zip_buffer.getvalue()))
 
-    @patch('minio_datalake.datalake.MinIOClient.fget_object')
-    def test_read_csv_to_dataframe(self, mock_fget_object):
-        mock_fget_object.return_value = None
-        df = self.datalake.read_csv_to_dataframe('/test_bucket/test.csv')
+    @classmethod
+    def tearDownClass(cls):
+        # Remove all objects in the bucket
+        objects_to_delete = [obj.object_name for obj in cls.bucket.list_objects(recursive=True)]
+        for obj_name in objects_to_delete:
+            cls.bucket.remove_object(obj_name)
+            logger.info('Deleted object %s', obj_name)
+
+        logger.info('Deleted bucket %s', cls.bucket_name)
+        # Remove the bucket
+        cls.bucket.remove()
+
+    def test_extract_zip_to_datalake(self):
+        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.zip_object_name)
+        df = self.datalake.read_csv_from_zip(minio_object)
+        self.assertEqual(df.count(), 2)  # Assuming the CSV file has 2 rows
+
+    def test_read_csv_to_dataframe(self):
+        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.csv_object_name)
+        df = self.datalake.read_csv_to_dataframe(minio_object)
+        self.assertEqual(df.count(), 2)  # Assuming the CSV file has 2 rows
+
+    def test_data_frame_to_parquet(self):
+        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.csv_object_name)
+        df = self.datalake.read_csv_to_dataframe(minio_object)
+        parquet_path = self.datalake.dataframe_to_parquet(df, f'{self.bucket_name}/test.parquet')
+        df_parquet = self.datalake.spark.read.parquet(f's3a://{parquet_path}')
+        self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
+
+    def test_ingest_csv_to_datalake(self):
+        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.csv_object_name)
+        df = self.datalake.ingest_csv_to_datalake(minio_object, destination_path=self.bucket_name)
         self.assertIsNotNone(df)
+        self.assertEqual(df.count(), 2)
 
-    @patch('minio_datalake.datalake.MinIOClient.put_object')
-    def test_dataframe_to_parquet(self, mock_put_object):
-        df = self.mock_spark.createDataFrame([(1, 'test')], ['id', 'value'])
-        path = self.datalake.dataframe_to_parquet(df, '/test_bucket/test.parquet')
-        self.assertEqual(path, 'test_bucket/test.parquet')
-        mock_put_object.assert_called_once()
-
-    @patch('minio_datalake.datalake.MinIOClient.fget_object')
-    @patch('minio_datalake.datalake.MinIOClient.put_object')
-    def test_ingest_csv_to_datalake(self, mock_put_object, mock_fget_object):
-        mock_fget_object.return_value = None
-        df = self.datalake.ingest_csv_to_datalake('/test_bucket/test.csv', temp_view_name='test_view')
-        self.assertIsNotNone(df)
-        mock_fget_object.assert_called()
-        mock_put_object.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
