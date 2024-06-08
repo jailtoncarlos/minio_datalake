@@ -1,4 +1,7 @@
 from minio import Minio
+from minio.datatypes import Bucket
+from minio.helpers import ObjectWriteResult
+from urllib3 import BaseHTTPResponse
 
 class MinIOClient:
     """
@@ -10,7 +13,7 @@ class MinIOClient:
     def __init__(self, endpoint, access_key, secret_key):
         self.client = Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=False)
 
-    def bucket_exists(self, bucket_name):
+    def bucket_exists(self, bucket_name: str) -> bool:
         """
         Check if a bucket exists.
 
@@ -22,7 +25,7 @@ class MinIOClient:
         """
         return self.client.bucket_exists(bucket_name)
 
-    def make_bucket(self, bucket_name):
+    def make_bucket(self, bucket_name: str):
         """
         Create a bucket if it does not exist.
 
@@ -32,7 +35,7 @@ class MinIOClient:
         if not self.bucket_exists(bucket_name):
             self.client.make_bucket(bucket_name)
 
-    def list_buckets(self):
+    def list_buckets(self) -> list[Bucket]:
         """
         List all buckets.
 
@@ -41,7 +44,7 @@ class MinIOClient:
         """
         return self.client.list_buckets()
 
-    def fput_object(self, bucket_name, object_name, file_path):
+    def fput_object(self, bucket_name, object_name, file_path) -> ObjectWriteResult:
         """
         Upload a file to a bucket.
 
@@ -50,9 +53,20 @@ class MinIOClient:
         object_name (str): Name of the object.
         file_path (str): Path to the file.
         """
-        self.client.fput_object(bucket_name, object_name, file_path)
+        return self.client.fput_object(bucket_name, object_name, file_path)
 
-    def get_object(self, bucket_name, object_name):
+    def fget_object(self, bucket_name, object_name, file_path):
+        """
+        Download a file from a bucket.
+
+        Parameters:
+        bucket_name (str): Name of the bucket.
+        object_name (str): Name of the object.
+        file_path (str): Path where the file will be saved.
+        """
+        self.client.fget_object(bucket_name, object_name, file_path)
+
+    def get_object(self, bucket_name, object_name) -> BaseHTTPResponse:
         """
         Get an object from a bucket.
 

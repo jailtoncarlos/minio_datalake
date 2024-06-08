@@ -2,33 +2,40 @@ version: "3.8" # Docker Engine release: 19.03.0+
 services:
   jupyterlab-pyspark:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: jupyterlab-pyspark
     restart: always
     command: start-notebook.sh --NotebookApp.password=sha256:bb8c050b9545:c21d963d0765635c8494c787935802d4511e0411fb3d4a555f45e2ab0a776c80
     volumes:
-      - ./:/home/jovyan/minio_datalake  # Montar o diretório do projeto
+      - ../:/home/jovyan/minio_datalake # Mount the project directory
     environment:
       - GRANT_SUDO=yes
       - JUPYTER_ENABLE_LAB=yes
+#      - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
+#      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+#      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
     ports:
       - 8888:8888
       - 4040:4040
+    env_file:
+      - .env
 
   minio:
     image: minio/minio
     container_name: minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
     volumes:
       - minio-data:/data
     ports:
       - 9000:9000
       - 9001:9001
     restart: always
+    env_file:
+      - .env
 
 volumes:
   minio-data:

@@ -5,13 +5,13 @@ FROM jupyter/pyspark-notebook:latest
 WORKDIR /home/jovyan
 
 # Copiar o arquivo de requisitos
-COPY requirements.txt /home/jovyan/
+COPY ../requirements.txt /home/jovyan/
 
 # Instalar as dependências do Python
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar o restante do código do projeto
-COPY . /home/jovyan/minio_datalake/
+COPY .. /home/jovyan/minio_datalake/
 
 # Definir o PYTHONPATH para incluir o diretório do projeto
 ENV PYTHONPATH="/home/jovyan/minio_datalake:${PYTHONPATH}"

@@ -4,6 +4,14 @@ This project sets up a MinIO DataLake with JupyterLab and PySpark using Docker. 
 
 ## Installation
 
+You can install the package via pip:
+
+```bash
+pip install git+https://github.com/jailtoncarlos/minio_datalake.git
+```
+
+Alternatively, you can clone the repository and install it locally:
+
 1. Clone the repository:
 
    ```bash
@@ -11,48 +19,75 @@ This project sets up a MinIO DataLake with JupyterLab and PySpark using Docker. 
    cd minio_datalake
    ```
 
-2. Create and activate a virtual environment:
+2. Install the package:
 
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows use: venv\Scripts\activate
-   ```
-
-3. Install the dependencies:
-
-   ```bash
-   pip install -r requirements.txt
+   pip install .
    ```
 
 ## Configuration
 
-Edit the `settings.py` file to include your MinIO credentials and settings:
+You can either create a copy of `local_settings_sample.py` and edit it with your MinIO credentials or define environment variables.
+
+### Option 1: Edit `local_settings.py`
+
+Create a copy of `local_settings_sample.py` and edit the new file:
+
+```bash
+cp minio_datalake/local_settings_sample.py minio_datalake/local_settings.py
+```
+
+Then, edit `minio_datalake/local_settings.py`:
 
 ```python
-MINIO_ENDPOINT = 'YOUR_MINIO_ENDPOINT'
-MINIO_ACCESS_KEY = 'YOUR_ACCESS_KEY'
-MINIO_SECRET_KEY = 'YOUR_SECRET_KEY'
-BUCKET_RAW = 'raw'
-BUCKET_STAGE = 'stage'
+import os
+
+MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'minio:9000')
+ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
+SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
+
+RAW_BUCKET = 'raw'
+STAGE_BUCKET = 'stage'
+```
+
+### Option 2: Define Environment Variables
+
+Alternatively, you can define the necessary environment variables:
+
+```bash
+export MINIO_ENDPOINT='minio:9000'
+export MINIO_ACCESS_KEY='minioadmin'
+export MINIO_SECRET_KEY='minioadmin'
 ```
 
 ## Usage
 
 ```python
 from minio_datalake.datalake import MinIODatalake
+import minio_datalake.settings as settings
 
 # Create an instance of MinIODatalake
 datalake = MinIODatalake()
 
-# Load a CSV file into the DataLake
-df = datalake.load_csv('/path/to/your/file.csv', destination_path='stage', temp_view_name='my_temp_view')
+# Get bucket instances
+raw_bucket = datalake.get_bucket(settings.RAW_BUCKET)
+stage_bucket = datalake.get_bucket(settings.STAGE_BUCKET)
 
-# Check if the 'raw' and 'stage' buckets exist
-raw_bucket_exists = datalake.get_bucket('raw').bucket_exists()
-stage_bucket_exists = datalake.get_bucket('stage').bucket_exists()
+# Check if the 'raw' bucket exists, if not create it
+if not raw_bucket.bucket_exists():
+    print(f"Creating bucket '{settings.RAW_BUCKET}'...")
+    raw_bucket.create()
 
-print(f"'raw' bucket exists: {raw_bucket_exists}")
-print(f"'stage' bucket exists: {stage_bucket_exists}")
+# Check if the 'stage' bucket exists, if not create it
+if not stage_bucket.bucket_exists():
+    print(f"Creating bucket '{settings.STAGE_BUCKET}'...")
+    stage_bucket.create()
+
+# List directories in the root of the DataLake
+buckets = datalake.client.list_buckets()
+print("Buckets in the root of the DataLake:")
+for bucket in buckets:
+    print(bucket.name)
 ```
 
 ## Running Tests
@@ -65,7 +100,7 @@ The tests are configured to run inside the JupyterLab container to avoid install
 
 ```bash
 #!/bin/bash
-docker exec -it jupyterlab-pyspark bash -c "cd /home/jovyan/minio_datalake && export PYTHONPATH=/home/jovyan/minio_datalake && python3 -m unittest discover -s . -p 'test_*.py'"
+docker exec -it jupyterlab-pyspark bash -c "cd /home/jovyan/minio_datalake && export PYTHONPATH=/home/jovyan/minio_datalake && python3 -m unittest discover -s tests -p 'tests.py'"
 ```
 
 Make sure to make the script executable:
@@ -109,16 +144,30 @@ docker-compose up --build
 ```
 minio_datalake/
 │
-├── __init__.py
-├── datalake.py
-├── settings.py
-├── local_settings_sample.py
-├── local_settings.py
+├── minio_datalake/
+│   ├── __init__.py
+│   ├── bucket.py
+│   ├── client.py
+│   ├── datalake.py
+│   ├── object.py
+│   ├── settings.py
+│   ├── utils.py
+│   ├── local_settings.py
+│   ├── local_settings_sample.py
+│
+├── sample/
+├── work/
+├── tests/
+│   ├── __init__.py
+│   ├── tests.py
+│
+├── minio_datalake_example.ipynb
 ├── requirements.txt
-├── test_datalake.py
-├── utils.py
+├── setup.py
+├── Dockerfile
+├── docker-compose.yaml
 ├── run_tests.sh
-└── minio_datalake_example.ipynb
+├── README.md
 ```
 
 ## Dockerfile
@@ -151,7 +200,7 @@ ENV PYTHONPATH="/home/jovyan/minio_datalake:${PYTHONPATH}"
 
 The Docker Compose file to set up JupyterLab, PySpark, and MinIO:
 
-#### `docker-compose.yml`
+#### `docker-compose.yaml`
 
 ```yaml
 version: "3.8" # Docker Engine release: 19.03.0+
@@ -159,7 +208,7 @@ services:
   jupyterlab-pyspark:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     container_name: jupyterlab-pyspark
     restart: always
     command: start-notebook.sh --NotebookApp.password=sha256:bb8c050b9545:c21d963d0765635c8494c787935802d4511e0411fb3d4a555f45e2ab0a776c80
@@ -204,3 +253,63 @@ An example notebook `minio_datalake_example.ipynb` is provided to demonstrate ho
   - URL: `http://localhost:9001`
   - Username: `minioadmin`
   - Password: `minioadmin`
+
+## Using with Google Colab
+
+To use this project with Google Colab, follow these steps:
+
+1. **Open Google Colab**:
+   - Go to [Google Colab](https://colab.research.google.com/).
+   - Create a new notebook or open an existing one.
+
+2. **Mount Google Drive** (if needed):
+
+   ```python
+   from google.colab import drive
+   drive.mount('/content/drive')
+   ```
+
+3. **Clone the Repository**:
+
+   ```python
+   !git clone https://github.com/jailtoncarlos/minio_datalake.git
+   %cd minio_datalake
+   ```
+
+4. **Install Dependencies**:
+
+   ```python
+   !pip install -r requirements.txt
+   ```
+
+5. **Set Environment Variables**:
+
+   ```python
+   import os
+   os.environ['MINIO_ENDPOINT'] = 'minio:9000'
+   os.environ['MINIO_ACCESS_KEY'] = 'minioadmin'
+   os.environ['MINIO_SECRET_KEY'] = 'minioadmin'
+   ```
+
+6. **Edit `local_settings.py`**:
+
+   ```python
+   !cp /content/minio_datalake/local_settings_sample.py /content/minio_datalake/local_settings.py
+
+   %%writefile /content/minio_datalake/local_settings.py
+   import os
+
+   MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'minio:9000')
+   ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
+   SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
+
+   RAW_BUCKET = 'raw'
+   STAGE_BUCKET = 'stage'
+   ```
+
+7. **Run the Project Code**:
+
+   ```python
+   from minio_datalake.datalake import MinIODatalake
+
+   # Create an instance of MinIOD

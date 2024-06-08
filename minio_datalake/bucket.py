@@ -1,3 +1,7 @@
+from minio.datatypes import Bucket
+from minio_datalake.client import MinIOClient
+
+
 class MinIOBucket:
     """
     Class to represent a MinIO bucket.
@@ -6,17 +10,17 @@ class MinIOBucket:
     client: Instance of the MinIO client.
     bucket_name: Name of the bucket.
     """
-    def __init__(self, client, bucket_name):
+    def __init__(self, client: MinIOClient, bucket_name: str):
         self.client = client
         self.bucket_name = bucket_name
 
-    def create_bucket(self):
+    def create(self):
         """
         Create a bucket if it does not exist.
         """
         self.client.make_bucket(self.bucket_name)
 
-    def bucket_exists(self):
+    def exists(self) -> bool:
         """
         Check if the bucket exists.
 

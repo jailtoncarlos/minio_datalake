@@ -7,9 +7,9 @@ logging.basicConfig(
 )
 
 # Main settings for MinIO DataLake
-MINIO_URL = 'minio:9000'  # Use the service name defined in docker-compose.yml
-ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
-SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
+MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'minio:9000') # Use the service name defined in docker-compose.yml
+MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
+MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
 
 RAW_BUCKET = 'raw'
 STAGE_BUCKET = 'stage'

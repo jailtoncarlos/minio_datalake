@@ -1,4 +1,10 @@
 # .gitignore
+minio_datalake/local_settings.py
+.idea/
+.ipynb_checkpoints/
+__pycache__
 
-local_settings.py
-venv/
+.venv/
+work/
+sample/
+.env
