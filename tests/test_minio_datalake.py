@@ -70,17 +70,25 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         df_parquet = self.datalake.spark.read.parquet(f's3a://{parquet_path}')
         self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
 
+    def test_read_parquet_to_dataframe(self):
+        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.parquet_object_name)
+        df = self.datalake.read_parquet_to_dataframe(minio_object)
+        self.assertEqual(df.count(), 2)  # Assuming the CSV file has 2 rows
+
     def test_ingest_csv_to_datalake(self):
         minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.csv_object_name)
         df = self.datalake.ingest_csv_to_datalake(minio_object, destination_path=self.bucket_name)
         self.assertIsNotNone(df)
         self.assertEqual(df.count(), 2)
 
-    def test_read_parquet_to_dataframe(self):
-        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.parquet_object_name)
-        df = self.datalake.read_parquet_to_dataframe(minio_object)
+    def test_unzip(self):
+        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.zip_object_name)
+        extracted_objects = self.datalake.unzip(minio_object)
+        self.assertGreater(len(extracted_objects), 0)  # Ensure that files were extracted
+        csv_objects = [obj for obj in extracted_objects if obj.object_name.endswith('.csv')]
+        self.assertEqual(len(csv_objects), 1)  # There should be one CSV file extracted
+        df = self.datalake.read_csv_to_dataframe(csv_objects[0])
         self.assertEqual(df.count(), 2)  # Assuming the CSV file has 2 rows
-
 
 if __name__ == '__main__':
     unittest.main()
