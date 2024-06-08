@@ -1,6 +1,8 @@
+# arquivo test_minio_object.py
 import unittest
 from io import BytesIO
-from minio_datalake.client import MinIOClient
+from unittest.mock import patch
+from minio import Minio
 from minio_datalake.datalake import MinIOSparkDatalake
 from minio_datalake.object import MinIOObject
 import minio_datalake.settings as settings
@@ -9,10 +11,11 @@ class TestMinIOObject(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.datalake = MinIOSparkDatalake(settings.MINIO_ENDPOINT, settings.MINIO_ACCESS_KEY, settings.MINIO_SECRET_KEY,
-                                          settings.MINIO_USE_SSL)
-        cls.bucket = cls.datalake.get_bucket('test-bucket')
-        cls.object = cls.datalake.get_object('test-bucket', 'test-object')
+        cls.datalake = MinIOSparkDatalake(settings.MINIO_ENDPOINT, settings.MINIO_ACCESS_KEY, settings.MINIO_SECRET_KEY, settings.MINIO_USE_SSL)
+        cls.bucket_name = 'test-bucket'
+        cls.object_name = 'test-object'
+        cls.bucket = cls.datalake.get_bucket(cls.bucket_name)
+        cls.object = cls.datalake.get_object(cls.bucket_name, cls.object_name)
 
         # Ensure the bucket exists
         if not cls.bucket.exists():
@@ -20,32 +23,41 @@ class TestMinIOObject(unittest.TestCase):
 
         # Create a test object in MinIO
         data = BytesIO(b'Hello World')
-        cls.object.put(data)
+        cls.object.put(data, length=len(data.getvalue()))
 
     @classmethod
     def tearDownClass(cls):
-        cls.client.remove_object(cls.bucket_name, cls.object_name)
-        cls.client.remove_bucket(cls.bucket_name)
-
-    def setUp(self):
-        self.obj = MinIOObject(self.client, self.bucket_name, self.object_name)
+        cls.object.remove()
+        cls.bucket.remove()
 
     def test_exists(self):
-        with unittest.mock.patch.object(self.client, 'stat_object', wraps=self.client.stat_object) as mock_stat_object:
-            self.assertTrue(self.obj.exists())
-            mock_stat_object.assert_called_once_with(self.bucket_name, self.object_name)
-
-    def test_get(self):
-        with unittest.mock.patch.object(self.client, 'get', wraps=self.client.get) as mock_get:
-            response = self.obj.get()
-            mock_get.assert_called_once_with(self.bucket_name, self.object_name)
-            self.assertIsNotNone(response)
+        self.assertTrue(self.object.exists())
 
     def test_put(self):
         data = BytesIO(b'New Data')
-        with unittest.mock.patch.object(self.client, 'put', wraps=self.client.put) as mock_put:
-            self.obj.put(data)
-            mock_put.assert_called_once_with(self.bucket_name, self.object_name, data)
+        result = self.object.put(data, length=len(data.getvalue()))
+        self.assertIsNotNone(result)
+
+    def test_remove(self):
+        data = BytesIO(b'Temporary Data')
+        temp_object = MinIOObject(self.object.client, self.bucket_name, 'temp-object')
+        temp_object.put(data, length=len(data.getvalue()))
+        self.assertTrue(temp_object.exists())
+        temp_object.remove()
+        self.assertFalse(temp_object.exists())
+
+    def test_fget_fput(self):
+        with open('/tmp/testfile.txt', 'w') as f:
+            f.write('This is a test file.')
+
+        result = self.object.fput('/tmp/testfile.txt')
+        self.assertIsNotNone(result)
+
+        self.object.fget('/tmp/downloaded_testfile.txt')
+
+        with open('/tmp/downloaded_testfile.txt', 'r') as f:
+            content = f.read()
+            self.assertEqual(content, 'This is a test file.')
 
 if __name__ == '__main__':
     unittest.main()

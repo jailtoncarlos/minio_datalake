@@ -1,11 +1,6 @@
 from typing import BinaryIO
-
-import urllib3
 from minio import Minio
 from minio.helpers import ObjectWriteResult
-from urllib3.response import HTTPResponse
-from minio_datalake.bucket import MinIOBucket
-
 
 class MinIOObject:
     """
@@ -23,7 +18,7 @@ class MinIOObject:
 
     @property
     def client(self):
-        return self.client
+        return self._client
 
     @property
     def bucket_name(self):
@@ -45,6 +40,14 @@ class MinIOObject:
         """
         return self.client.put_object(self.bucket_name, self._object_name, data, length, *args, **kwargs)
 
+    def remove(
+        self,
+        *args, **kwargs):
+        """
+        Remove an object.
+        """
+        self.client.remove_object(self.bucket_name, self._object_name, *args, **kwargs)
+
     def fget(self, file_path: str, *args, **kwargs):
         """
         Downloads data of an object to file.
@@ -52,7 +55,7 @@ class MinIOObject:
         :param file_path: Name of file to download.
 
         """
-        return self.client.fget_object(self.bucket_name, self.object_name, file_path, *args, **kwargs)
+        self.client.fget_object(self.bucket_name, self.object_name, file_path, *args, **kwargs)
 
     def fput(self, file_path: str, *args, **kwargs) -> ObjectWriteResult:
         """
