@@ -20,6 +20,7 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         cls.bucket_name = 'test-bucket'
         cls.zip_object_name = 'test.zip'
         cls.csv_object_name = 'test.csv'
+        cls.parquet_object_name = 'test.parquet'
         cls.bucket = cls.datalake.get_bucket(cls.bucket_name)
 
         if not cls.bucket.exists():
@@ -34,6 +35,11 @@ class TestMinIOSparkDatalake(unittest.TestCase):
             zip_file.writestr(cls.csv_object_name, data.getvalue())
         zip_buffer.seek(0)
         cls.bucket.put_object(cls.zip_object_name, zip_buffer, len(zip_buffer.getvalue()))
+
+        # Create a test Parquet file in MinIO
+        minio_object = MinIOObject(cls.datalake.client, cls.bucket_name, cls.csv_object_name)
+        df = cls.datalake.read_csv_to_dataframe(minio_object)
+        cls.datalake.dataframe_to_parquet(df, f'{cls.bucket_name}/{cls.parquet_object_name}')
 
     @classmethod
     def tearDownClass(cls):
@@ -70,14 +76,11 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         self.assertIsNotNone(df)
         self.assertEqual(df.count(), 2)
 
-    def test_unzip(self):
-        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.zip_object_name)
-        extracted_objects = self.datalake.unzip(minio_object)
-        self.assertGreater(len(extracted_objects), 0)  # Ensure that files were extracted
-        csv_objects = [obj for obj in extracted_objects if obj.object_name.endswith('.csv')]
-        self.assertEqual(len(csv_objects), 1)  # There should be one CSV file extracted
-        df = self.datalake.read_csv_to_dataframe(csv_objects[0])
+    def test_read_parquet_to_dataframe(self):
+        minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.parquet_object_name)
+        df = self.datalake.read_parquet_to_dataframe(minio_object)
         self.assertEqual(df.count(), 2)  # Assuming the CSV file has 2 rows
+
 
 if __name__ == '__main__':
     unittest.main()

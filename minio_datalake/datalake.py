@@ -104,6 +104,20 @@ class MinIOSparkDatalake:
         df = self.spark.read.options(header='true').csv(csv_path)
         return df
 
+    def read_parquet_to_dataframe(self, minio_object: MinIOObject) -> DataFrame:
+        """
+        Read a Parquet file from MinIO and return a Spark DataFrame.
+
+        Parameters:
+        minio_object (MinIOObject): MinIOObject representing the Parquet file.
+
+        Returns:
+        DataFrame: Spark DataFrame.
+        """
+        parquet_path = f"s3a://{minio_object.bucket_name}/{minio_object.object_name}"
+        df = self.spark.read.parquet(parquet_path)
+        return df
+
     def dataframe_to_parquet(self, df: DataFrame, path: str) -> str:
         """
         Convert a Spark DataFrame to Parquet and save it to MinIO.
