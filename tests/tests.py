@@ -25,18 +25,18 @@ class TestMinIODatalake(unittest.TestCase):
         stage_bucket = self.datalake.get_bucket(settings.STAGE_BUCKET)
 
         # Check if the 'raw' bucket exists, if not create it
-        if not raw_bucket.bucket_exists():
+        if not raw_bucket.exists():
             print(f"Creating bucket '{settings.RAW_BUCKET}'...")
             raw_bucket.create()
 
         # Check if the 'stage' bucket exists, if not create it
-        if not stage_bucket.bucket_exists():
+        if not stage_bucket.exists():
             print(f"Creating bucket '{settings.STAGE_BUCKET}'...")
             stage_bucket.create()
 
         # Verify that the buckets now exist
-        self.assertTrue(raw_bucket.bucket_exists(), f"Bucket '{settings.RAW_BUCKET}' should exist.")
-        self.assertTrue(stage_bucket.bucket_exists(), f"Bucket '{settings.STAGE_BUCKET}' should exist.")
+        self.assertTrue(raw_bucket.exists(), f"Bucket '{settings.RAW_BUCKET}' should exist.")
+        self.assertTrue(stage_bucket.exists(), f"Bucket '{settings.STAGE_BUCKET}' should exist.")
 
     def test_list_buckets(self):
         # List directories in the root of the DataLake
