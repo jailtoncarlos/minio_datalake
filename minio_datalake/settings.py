@@ -1,4 +1,9 @@
 import os
+import logging
+
+# Configurar o logger
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', filename='directory_listing.log')
+logger = logging.getLogger()
 
 def generate_spark_init_script():
     script_content = f"""

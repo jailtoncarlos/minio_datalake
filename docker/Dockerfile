@@ -1,6 +1,12 @@
 # Use the official Jupyter image with PySpark
 FROM jupyter/pyspark-notebook:latest
 
+# Atualizar e instalar dependências necessárias
+USER root
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set the working directory
 WORKDIR /home/jovyan
 
@@ -10,16 +16,18 @@ COPY ../requirements.txt /home/jovyan/
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Ensure the script directory exists with the correct permissions
-RUN mkdir -p /home/jovyan/minio_datalake/scripts  \
-    && chown -R jovyan:users /home/jovyan/minio_datalake/scripts  \
-    && chmod 777 /home/jovyan/minio_datalake/scripts
-
 # Copy the rest of the project code
 COPY .. /home/jovyan/minio_datalake/
 
+# Ensure the script directory exists with the correct permissions
+RUN mkdir -p /home/jovyan/minio_datalake/scripts  \
+    && chown -R jovyan:users /home/jovyan/minio_datalake/scripts  \
+    && chmod -R 777 /home/jovyan/minio_datalake/scripts
+
 # Set PYTHONPATH to include the project directory before running the settings script
 ENV PYTHONPATH="/home/jovyan/minio_datalake:${PYTHONPATH}"
+
+USER jovyan
 
 # Run the settings script to generate the Spark init script
 RUN python -c "import minio_datalake.settings"
