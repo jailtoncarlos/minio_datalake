@@ -15,7 +15,7 @@ Alternatively, you can clone the repository and install it locally:
 1. Clone the repository:
 
    ```bash
-   git clone git@github.com:jailtoncarlos/minio_datalake.git
+   git clone https://github.com/jailtoncarlos/minio_datalake.git
    cd minio_datalake
    ```
 
@@ -70,17 +70,17 @@ import minio_datalake.settings as settings
 datalake = MinIOSparkDatalake()
 
 # Get bucket instances
-raw_bucket = datalake.get_bucket(settings.RAW_BUCKET)
-stage_bucket = datalake.get_bucket(settings.STAGE_BUCKET)
+raw_bucket = datalake.get_bucket(settings.MINIO_BUCKET_RAW_NAME)
+stage_bucket = datalake.get_bucket(settings.MINIO_BUCKET_STAGE_NAME)
 
 # Check if the 'raw' bucket exists, if not create it
 if not raw_bucket.bucket_exists():
-    print(f"Creating bucket '{settings.RAW_BUCKET}'...")
+    print(f"Creating bucket '{settings.MINIO_BUCKET_RAW_NAME}'...")
     raw_bucket.create()
 
 # Check if the 'stage' bucket exists, if not create it
 if not stage_bucket.bucket_exists():
-    print(f"Creating bucket '{settings.STAGE_BUCKET}'...")
+    print(f"Creating bucket '{settings.MINIO_BUCKET_STAGE_NAME}'...")
     stage_bucket.create()
 
 # List directories in the root of the DataLake

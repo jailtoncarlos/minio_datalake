@@ -31,8 +31,11 @@ MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
 MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
 MINIO_USE_SSL = False
 
-RAW_BUCKET = 'raw'
-STAGE_BUCKET = 'stage'
+MINIO_BUCKET_RAW_NAME = os.getenv('MINIO_BUCKET_RAW_NAME', 'raw')
+MINIO_BUCKET_STAGE_NAME = os.getenv('MINIO_BUCKET_STAGE_NAME', 'stage')
+MINIO_BUCKET_CONSUME_NAME = os.getenv('MINIO_BUCKET_CONSUME_NAME', 'consume')
+MINIO_BUCKET_CURATED_NAME = os.getenv('MINIO_BUCKET_CURATED_NAME', 'curated')
+
 
 # Spark configurations to use MinIO
 SPARK_CONF = {
