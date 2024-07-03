@@ -1,7 +1,9 @@
 import unittest
 import logging
+from minio import S3Error
 from minio_spark import MinIOSpark
 from minio_spark import settings
+from io import BytesIO
 
 # Configurar logging para exibir apenas mensagens de debug do próprio teste
 logger = logging.getLogger()
@@ -10,7 +12,6 @@ handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 logger.handlers = [handler]
-
 
 class TestMinIODatalake(unittest.TestCase):
 
@@ -25,12 +26,12 @@ class TestMinIODatalake(unittest.TestCase):
         # Check if the 'raw' bucket exists, if not create it
         if not raw_bucket.exists():
             print(f"Creating bucket '{settings.S3_BUCKET_RAW_NAME}'...")
-            raw_bucket.create()
+            raw_bucket.make()
 
         # Check if the 'stage' bucket exists, if not create it
         if not stage_bucket.exists():
             print(f"Creating bucket '{settings.S3_BUCKET_STAGE_NAME}'...")
-            stage_bucket.create()
+            stage_bucket.make()
 
         # Verify that the buckets now exist
         self.assertTrue(raw_bucket.exists(), f"Bucket '{settings.S3_BUCKET_RAW_NAME}' should exist.")
@@ -43,6 +44,31 @@ class TestMinIODatalake(unittest.TestCase):
         for bucket in buckets:
             print(bucket.name)
         self.assertTrue(len(buckets) > 0, "There should be at least one bucket in the DataLake.")
+
+    def test_pagination(self):
+        raw_bucket = self.datalake.get_bucket(settings.S3_BUCKET_RAW_NAME)
+
+        # Number of test objects to create
+        num_test_objects = 105  # Adjust this number to ensure pagination
+
+        # Create test objects in the "raw" bucket
+        for i in range(num_test_objects):
+            object_name = f"test_object_{i}.txt"
+            data = BytesIO(b"Test data for pagination")
+            raw_bucket.put_object(object_name, data, len(data.getvalue()))
+            logger.debug(f"Created object {object_name} in bucket {settings.S3_BUCKET_RAW_NAME}")
+
+        # List objects using pagination
+        object_names = []
+        for obj in raw_bucket.list_objects(prefix="test_object_"):
+            object_names.append(obj.object_name)
+
+        # Verify that all test objects were listed
+        self.assertEqual(len(object_names), num_test_objects, f"Expected {num_test_objects} objects, but found {len(object_names)}.")
+
+        print("Objects listed in 'raw' bucket:")
+        for name in object_names:
+            print(name)
 
 if __name__ == '__main__':
     unittest.main()
