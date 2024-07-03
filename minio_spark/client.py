@@ -28,34 +28,8 @@ class MinioClient(Minio):
         buckets = super().list_buckets()
         return [MinioBucket(self, bucket.name, bucket.creation_date) for bucket in buckets]
 
-    def _list_objects(self,
-                      bucket_name: str,
-                      prefix: Optional[str] = None,
-                      delimiter: Optional[str] = None,
-                      start_after: Optional[str] = None,
-                      include_user_meta: bool = False,
-                      *args, **kwargs) -> Iterator[MinioObject]:
-        """Sobrescreve o método _list_objects para retornar MinioObject."""
-        objects = super()._list_objects(bucket_name, prefix, delimiter, start_after, include_user_meta)
+    def list_objects(self, bucket_name: str, prefix: Optional[str] = None, recursive: bool = False) -> Iterator[MinioObject]:
+        """Lists objects in a bucket and returns MinioObject."""
+        objects = super().list_objects(bucket_name, prefix=prefix, recursive=recursive)
         for obj in objects:
             yield MinioObject(self, obj.bucket_name, obj.object_name, obj.last_modified, obj.etag, obj.size, obj.content_type)
-
-    def list_objects(
-            self,
-            bucket_name: str,
-            prefix: Optional[str] = None,
-            recursive: bool = False,
-            start_after: Optional[str] = None,
-            include_user_meta: bool = False,
-            use_url_encoding_type: bool = True,
-            *args, **kwargs
-        ):
-        return self._list_objects(
-            bucket_name,
-            prefix=prefix,
-            delimiter=None if recursive else "/",
-            start_after=start_after,
-            include_user_meta=include_user_meta,
-            encoding_type="url" if use_url_encoding_type else None,
-            *args, **kwargs
-        )
