@@ -91,7 +91,8 @@ class MinIOSpark:
         '''
         return MinioObject(self.client, bucket_name, object_name)
 
-    def extract_and_upload_zip(self, minio_object: MinioObject, destination_object: Optional[MinioObject] = None, extract_to_bucket: bool = False) -> List[MinioObject]:
+    def extract_and_upload_zip(self, minio_object: MinioObject, destination_object: Optional[MinioObject] = None,
+                               extract_to_bucket: bool = False) -> List[MinioObject]:
         """
         Extracts a ZIP file from MinIO and uploads the content back to MinIO.
 
@@ -103,8 +104,8 @@ class MinIOSpark:
         Returns:
         list: List of MinIOObjects for the extracted files.
         """
-        zip_buffer = BytesIO(self.client.get_object(minio_object.bucket_name, minio_object.name).read())
-        zip_buffer.seek(0)
+        response = self.client.get_object(minio_object.bucket_name, minio_object.name)
+        zip_file = zipfile.ZipFile(BytesIO(response.read()), 'r')
 
         if extract_to_bucket:
             destination_prefix = minio_object.bucket_name
@@ -112,12 +113,21 @@ class MinIOSpark:
             destination_prefix = destination_object.object_name if destination_object else f'{os.path.splitext(minio_object.name)[0]}'
 
         extracted_objects = []
-        with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
-            for file_name in zip_ref.namelist():
-                file_data = zip_ref.read(file_name)
+        for file_name in zip_file.namelist():
+            with zip_file.open(file_name) as file_data:
                 file_path = f'{destination_prefix}/{file_name}'
-                self.client.put_object(minio_object.bucket_name, file_path, BytesIO(file_data), len(file_data))
+                # Upload the file in chunks to avoid using too much memory
+                self.client.put_object(
+                    minio_object.bucket_name,
+                    file_path,
+                    data=file_data,
+                    length=-1,
+                    part_size=10 * 1024 * 1024  # 10MB chunks
+                )
                 extracted_objects.append(MinioObject(self.client, minio_object.bucket_name, file_path))
+
+        zip_file.close()
+        response.close()
 
         return extracted_objects
 
