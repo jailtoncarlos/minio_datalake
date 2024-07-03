@@ -5,7 +5,7 @@ from minio.helpers import ObjectWriteResult
 from minio.time import from_iso8601utc
 
 from minio_spark.object import MinioObject
-from minio_spark.utils import MinIOUtils
+from minio_spark.utils import MinioUtils
 
 
 class MinioBucket(Bucket):
@@ -32,7 +32,7 @@ class MinioBucket(Bucket):
         """
         Create a bucket if it does not exist, ensuring the name is valid.
         """
-        if not MinIOUtils.validate_bucket_name(self._name):
+        if not MinioUtils.validate_bucket_name(self._name):
             raise ValueError(f"Invalid bucket name: {self._name}")
 
         self._client.make_bucket(self._name, *args, **kwargs)

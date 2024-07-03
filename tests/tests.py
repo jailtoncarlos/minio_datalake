@@ -1,7 +1,7 @@
 import unittest
 import logging
 from minio import S3Error
-from minio_spark import MinIOSpark
+from minio_spark import MinioSpark
 from minio_spark import settings
 from io import BytesIO
 
@@ -17,7 +17,7 @@ class TestMinIODatalake(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.datalake = MinIOSpark()
+        cls.datalake = MinioSpark()
 
     @classmethod
     def tearDownClass(cls):

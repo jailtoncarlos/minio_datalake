@@ -13,7 +13,7 @@ from minio_spark.object import MinioObject
 logger = logging.getLogger(__name__)
 
 
-class MinIOSpark:
+class MinioSpark:
     '''
     Main class for interacting with the MinIO DataLake.
 
@@ -104,7 +104,8 @@ class MinIOSpark:
         Returns:
         list: List of MinIOObjects for the extracted files.
         """
-        zip_buffer = BytesIO(self.client.get_object(minio_object.bucket_name, minio_object.name).read())
+        response = self.client.get_object(minio_object.bucket_name, minio_object.name)
+        zip_buffer = BytesIO(response.read())
         zip_buffer.seek(0)
 
         if extract_to_bucket:
@@ -112,14 +113,21 @@ class MinIOSpark:
         else:
             destination_prefix = destination_object.object_name if destination_object else f'{os.path.splitext(minio_object.name)[0]}'
 
+        # Remove any trailing slash from the destination prefix
+        if not destination_prefix.endswith('/'):
+            destination_prefix = f'{destination_prefix}/'
+
         extracted_objects = []
         with zipfile.ZipFile(zip_buffer, 'r') as zip_ref:
             for file_name in zip_ref.namelist():
-                file_data = zip_ref.read(file_name)
-                file_path = f'{destination_prefix}/{file_name}'
-                self.client.put_object(minio_object.bucket_name, file_path, BytesIO(file_data), len(file_data))
-                extracted_objects.append(MinioObject(self.client, minio_object.bucket_name, file_path))
+                if not file_name.endswith('/'):  # Skip directories
+                    with zip_ref.open(file_name) as source_file:
+                        file_path = f'{destination_prefix}{file_name}'  # Use single slash for concatenation
+                        self.client.put_object(minio_object.bucket_name, file_path, data=source_file, length=-1,
+                                               part_size=10 * 1024 * 1024)
+                        extracted_objects.append(MinioObject(self.client, minio_object.bucket_name, file_path))
 
+        response.close()
         return extracted_objects
 
     def extract_and_upload_zip_by_prefix(self, bucket_name: str, prefix: str, extract_to_bucket: bool = False):
@@ -135,7 +143,9 @@ class MinIOSpark:
         for obj in objects:
             if obj.object_name.endswith('.zip'):
                 minio_object = MinioObject(self.client, bucket_name, obj.object_name)
-                self.extract_and_upload_zip(minio_object, extract_to_bucket=extract_to_bucket)
+                destination_object = MinioObject(self.client, bucket_name, prefix) if extract_to_bucket else None
+                self.extract_and_upload_zip(minio_object, destination_object=destination_object,
+                                            extract_to_bucket=extract_to_bucket)
 
     def read_csv_from_zip(self, bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv',
                           option_args: Dict[str, Any] = None) -> DataFrame:
@@ -156,12 +166,11 @@ class MinIOSpark:
         self.extract_and_upload_zip_by_prefix(bucket_name, prefix)
 
         # Define the object representing the folder where CSVs are extracted
-        extracted_folder_object = MinioObject(self.client, bucket_name, prefix)
+        extracted_folder_object = MinioObject(self.client, bucket_name, os.path.splitext(prefix)[0])
 
         # Read the CSV files directly from the extracted folder
         df = self.read_csv_to_dataframe(extracted_folder_object.bucket_name, extracted_folder_object.name,
-                                        delimiter=delimiter, format_source=format_source,
-                                        option_args=option_args)
+                                        delimiter=delimiter, format_source=format_source, option_args=option_args)
 
         return df
 
