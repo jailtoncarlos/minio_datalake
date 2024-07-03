@@ -6,7 +6,7 @@ def read(f):
 
 setup(
     name='minio_spark',
-    version='0.1.0',
+    version='0.7.0',
     description='An abstraction for working with DataLake using MinIO and PySpark.',
     long_description=read('README.md'),
     long_description_content_type='text/markdown',
