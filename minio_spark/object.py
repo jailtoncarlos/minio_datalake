@@ -14,13 +14,13 @@ class MinioObject(Object):
     """
 
     def __init__(self, client,
-                bucket_name: str,
-                object_name: Optional[str],
-                last_modified: Optional[datetime] = None,
-                etag:  Optional[str] = None,
-                size:  Optional[int] = None,
-                content_type:  Optional[str] = None,
-        *args, **kwargs) -> None:
+                 bucket_name: str,
+                 object_name: Optional[str],
+                 last_modified: Optional[datetime] = None,
+                 etag:  Optional[str] = None,
+                 size:  Optional[int] = None,
+                 content_type:  Optional[str] = None,
+                 *args, **kwargs) -> None:
 
         from minio_spark.client import MinioClient  # Local import to avoid circular import
         if not isinstance(client, MinioClient):
@@ -40,10 +40,7 @@ class MinioObject(Object):
     def name(self):
         return self._object_name
 
-    def put(
-            self,
-            data: BinaryIO,
-            length: int, *args, **kwargs) -> ObjectWriteResult:
+    def put(self, data: BinaryIO, length: int, *args, **kwargs) -> ObjectWriteResult:
         """
         :param data: An object having callable read() returning bytes object.
         :param length: Data size; -1 for unknown size and set valid part_size.
@@ -52,9 +49,7 @@ class MinioObject(Object):
         """
         return self.client.put_object(self.bucket_name, self._object_name, data, length, *args, **kwargs)
 
-    def remove(
-            self,
-            *args, **kwargs):
+    def remove(self, *args, **kwargs):
         """
         Remove an object.
         """
@@ -65,7 +60,6 @@ class MinioObject(Object):
         Downloads data of an object to file.
 
         :param file_path: Name of file to download.
-
         """
         self.client.fget_object(self.bucket_name, self.name, file_path, *args, **kwargs)
 
@@ -92,3 +86,25 @@ class MinioObject(Object):
             return True
         except:
             return False
+
+    def rename(self, new_object_name: str) -> 'MinioObject':
+        """
+        Rename the object in the MinIO bucket.
+
+        Parameters:
+        new_object_name (str): New name for the object.
+
+        Returns:
+        MinioObject: New MinioObject with the new name.
+        """
+        # Copy the current object to the new name
+        copy_result = self.client.copy_object(
+            self.bucket_name, new_object_name, f'/{self.bucket_name}/{self.name}'
+        )
+
+        # Remove the original object
+        self.remove()
+
+        # Return a new MinioObject representing the renamed object
+        return MinioObject(self.client, self.bucket_name, new_object_name, copy_result.last_modified,
+                           copy_result.etag, copy_result.size, copy_result.content_type)

@@ -1,8 +1,8 @@
-from typing import BinaryIO, Iterator, Optional
 from datetime import datetime
+from typing import BinaryIO, Iterator, Optional
+
 from minio.datatypes import Bucket
 from minio.helpers import ObjectWriteResult
-from minio.time import from_iso8601utc
 
 from minio_spark.object import MinioObject
 from minio_spark.utils import MinioUtils
@@ -76,15 +76,15 @@ class MinioBucket(Bucket):
         return self._client.list_objects(self._name, prefix=prefix, recursive=recursive)
 
 
-def get_object(self, object_name: str) -> MinioObject:
-    """
-    Get an object by its path.
+    def get_object(self, object_name: str) -> MinioObject:
+        """
+        Get an object by its path.
 
-    Parameters:
-    object_path (str): Path of the object to retrieve.
+        Parameters:
+        object_path (str): Path of the object to retrieve.
 
-    Returns:
-    MinioObject: The retrieved object.
-    """
-    obj = self._client.get_object(self.name, object_name)
-    return MinioObject(self._client, self.name, object_name, obj.last_modified, obj.etag, obj.length, obj.content_type)
+        Returns:
+        MinioObject: The retrieved object.
+        """
+        obj = self._client.get_object(self.name, object_name)
+        return MinioObject(self._client, self.name, object_name, obj.last_modified, obj.etag, obj.length, obj.content_type)

@@ -17,9 +17,12 @@ To install the library, use pip:
 pip install git+https://github.com/jailtoncarlos/minio_spark.git
 ```
 
+
 ## Configuration
 
-Before using the library, configure the necessary environment variables for MinIO and Spark:
+Before using MinioSpark, it is necessary to configure the MinIO credentials and endpoint. Configuration can be done in two ways: through environment variables or by defining the `ConfSparkS3` or `SparkConfS3Kubernet` configuration objects.
+
+### Configuration via Environment Variables
 
 ```python
 import os
@@ -32,107 +35,150 @@ os.environ["SPARK_APP_NAME"] = "MinIOSparkApp"
 os.environ["SPARK_MASTER"] = "local[*]"
 os.environ["SPARK_DRIVER_HOST"] = os.environ.get("MY_POD_IP", '127.0.0.1')
 os.environ["SPARK_KUBERNETES_CONTAINER_IMAGE"] = "your-spark-image"
+
+from minio_spark import MinioSpark
+
+datalake = MinioSpark()
 ```
 
-## Usage
-
-### Initialize MinIOSpark
+### Configuration via `ConfSparkS3` or `SparkConfS3Kubernet` Object
 
 ```python
-from minio_spark import MinIOSpark
+from minio_spark.conf import ConfSparkS3, SparkConfS3Kubernet
+from minio_spark import MinioSpark
 
-datalake = MinIOSpark()
+# Using ConfSparkS3
+conf = ConfSparkS3(
+    spark_app_name="MinIOSparkApp",
+    s3_endpoint="your-minio-endpoint",
+    s3_access_key="your-access-key",
+    s3_secret_key="your-secret-key",
+    s3_use_ssl="false"
+)
+datalake = MinioSpark(conf=conf)
+
+# Using SparkConfS3Kubernet
+conf_k8s = SparkConfS3Kubernet(
+    spark_app_name="MinIOSparkApp",
+    s3_endpoint="your-minio-endpoint",
+    s3_access_key="your-access-key",
+    s3_secret_key="your-secret-key",
+    s3_use_ssl="false",
+    spark_master="k8s://https://your-k8s-api-server:443",
+    spark_driver_host="your-driver-host-ip",
+    spark_kubernetes_container_image="your-spark-image"
+)
+datalake = MinioSpark(conf=conf_k8s)
+```
+## Example Usage
+
+### Initialization
+
+```python
+from minio_spark import MinioSpark
+
+datalake = MinioSpark(conf)
 ```
 
-### Bucket Operations
-
-#### Get a Bucket
+### Operations with Buckets
 
 ```python
-bucket = datalake.get_bucket('your-bucket-name')
+bucket = datalake.get_bucket('my-bucket')
+if not bucket.exists():
+    bucket.make()
 ```
 
-#### Create a Bucket
+### Operations with Objects
 
 ```python
-bucket.make()
+minio_object = datalake.get_object('my-bucket', 'my-file.csv')
+
+# Check if the object exists
+if minio_object.exists():
+    print("The object exists")
+
+# Upload a file
+with open('local-file.csv', 'rb') as file_data:
+    minio_object.put(file_data, length=os.path.getsize('local-file.csv'))
+
+# Download a file
+minio_object.fget('downloaded-file.csv')
+
+# Remove an object
+minio_object.remove()
 ```
 
-#### Check if a Bucket Exists
+### Reading CSV Files
 
 ```python
-exists = bucket.exists()
-print(f"Bucket exists: {exists}")
-```
-
-### Object Operations
-
-#### Get an Object
-
-```python
-minio_object = datalake.get_object('your-bucket-name', 'your-object-name')
-```
-
-### Reading Data
-
-#### Read CSV to DataFrame
-
-```python
-df = datalake.read_csv_to_dataframe('your-bucket-name', 'your-object-name.csv')
+df = datalake.read_csv('my-bucket', 'my-prefix/', delimiter=',')
 df.show()
 ```
 
-#### Read Parquet to DataFrame
+### Reading Parquet Files
 
 ```python
-df = datalake.read_parquet_to_dataframe('your-bucket-name', 'your-object-name.parquet')
+parquet_object = datalake.get_object('my-bucket', 'my-file.parquet')
+df = datalake.read_parquet(parquet_object)
 df.show()
 ```
 
-### Writing Data
-
-#### DataFrame to Parquet
+### Converting DataFrames to Parquet
 
 ```python
-datalake.dataframe_to_parquet(df, 'your-bucket-name', 'your-object-name.parquet')
+df = ...  # Your Spark DataFrame
+parquet_object = datalake.get_object('my-bucket', 'my-file.parquet')
+datalake.to_parquet(df, parquet_object)
 ```
 
-### Extracting and Processing ZIP Files
-
-#### Extract ZIP and Read CSVs
+### Ingesting Files to the DataLake
 
 ```python
-df = datalake.read_csv_from_zip('your-bucket-name', 'your-zip-object-prefix')
-df.show()
+df = datalake.ingest_file_to_datalake('my-bucket', 'my-prefix', destination_bucket_name='my-destination', delimiter=',')
+df.createOrReplaceTempView('my_temp_view')
 ```
 
-### Ingesting Data
-
-#### Ingest CSV or ZIP to DataLake
+### Extracting and Uploading ZIP Files
 
 ```python
-df = datalake.ingest_file_to_datalake('your-bucket-name', 'your-object-prefix')
-df.show()
+zip_object = datalake.get_object('my-bucket', 'my-file.zip')
+extracted_objects = datalake.extract_and_upload_zip(zip_object)
+for obj in extracted_objects:
+    print(obj.name)
 ```
 
-## Changelog
+## Available Methods
 
-### Version 0.8.2
+### `MinioSpark`
 
-- Optimized ZIP extraction to handle large files without memory issues
-- Improved handling of CSV files extracted from ZIP archives
-- Fixed issues with bucket and object naming conventions
-- Updated tests to cover edge cases and large datasets
+- `get_bucket(bucket_name: str) -> MinioBucket`: Returns an instance of `MinioBucket`.
+- `get_object(bucket_name: str, object_name: str) -> MinioObject`: Returns an instance of `MinioObject`.
+- `extract_and_upload_zip(minio_object: MinioObject, destination_object: Optional[MinioObject] = None, extract_to_bucket: bool = False) -> List[MinioObject]`: Extracts a ZIP file from MinIO and uploads the content back to MinIO.
+- `extract_and_upload_zip_by_prefix(bucket_name: str, prefix: str, destination_prefix: str, extract_to_bucket: bool = False)`: Extracts all ZIP files in a bucket with a specific prefix and uploads the content back to MinIO.
+- `read_csv(bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv', option_args: Dict[str, Any] = None) -> DataFrame`: Reads CSV files from a folder in MinIO and returns a Spark DataFrame.
+- `read_parquet(minio_object: MinioObject) -> DataFrame`: Reads a Parquet file from MinIO and returns a Spark DataFrame.
+- `to_parquet(df: DataFrame, minio_object: MinioObject)`: Converts a Spark DataFrame to Parquet and saves it to MinIO.
+- `ingest_file_to_datalake(bucket_name: str, prefix: str, destination_bucket_name: str = 'stage', temp_view_name: str = None, delimiter=',', option_args: Optional[Dict[str, Any]] = None) -> DataFrame`: Ingests a file (CSV or ZIP) from a specified bucket and prefix to the MinIO DataLake, converting it to Parquet and creating a temporary view in Spark.
+
+### `MinioBucket`
+
+- `make()`: Creates a bucket if it does not exist.
+- `remove()`: Removes a bucket.
+- `put_object(object_name: str, data: BinaryIO, length: int) -> ObjectWriteResult`: Uploads an object to the bucket.
+- `remove_object(object_name: str)`: Removes an object from the bucket.
+- `exists() -> bool`: Checks if the bucket exists.
+- `list_objects(prefix: Optional[str] = None, recursive: bool = False) -> Iterator[MinioObject]`: Lists objects in the bucket.
+- `get_object(object_name: str) -> MinioObject`: Returns an object from the bucket by name.
+
+### `MinioObject`
+
+- `put(data: BinaryIO, length: int) -> ObjectWriteResult`: Uploads data to an object.
+- `remove()`: Removes an object.
+- `fget(file_path: str)`: Downloads an object's data to a file.
+- `fput(file_path: str) -> ObjectWriteResult`: Uploads data from a file to an object in the bucket.
+- `exists() -> bool`: Checks if the object exists in the bucket.
 
 ## License
 
-This project is licensed under the Mozilla Public License 2.0 - see the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
-
-## Acknowledgments
-
-- Thanks to the MinIO and Spark communities for their great tools and documentation.
-
+MinioSpark is licensed under the [MIT License](LICENSE).
+```
