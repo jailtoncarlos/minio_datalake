@@ -1,10 +1,12 @@
 from typing import Optional
-
 from pyspark import SparkConf
 
-from minio_spark import settings
+
 from minio_spark.conf_template import SPARK_CONF_S3_TEMPLATE, SPARK_CONF_KUBERNETES_TEMPLATE
 
+def _get_settings():
+    from minio_spark import settings
+    return settings
 
 class ConfSparkS3(SparkConf):
     SPARK_CONF_S3 = SPARK_CONF_S3_TEMPLATE.copy()
@@ -14,9 +16,12 @@ class ConfSparkS3(SparkConf):
                  s3_endpoint: str = None,
                  s3_access_key: str = None,
                  s3_secret_key: str = None,
-                 s3_use_ssl: bool = None):
+                 s3_use_ssl: str = None):
+
         super().__init__()
-        self.setAppName(spark_app_name)
+
+        settings = _get_settings()
+        self.setAppName(spark_app_name or settings.SPARK_APP_NAME)
 
         # Initialize S3 settings
         self._set_initial_values_s3(s3_endpoint or settings.S3_ENDPOINT,
@@ -24,13 +29,13 @@ class ConfSparkS3(SparkConf):
                                     s3_secret_key or settings.S3_SECRET_KEY,
                                     s3_use_ssl or settings.S3_USE_SSL)
 
-    def _set_initial_values_s3(self, s3_endpoint: str, s3_access_key: str, s3_secret_key: str, s3_use_ssl: bool):
+    def _set_initial_values_s3(self, s3_endpoint: str, s3_access_key: str, s3_secret_key: str, s3_use_ssl: str):
         # Updating default settings for S3 MinIO
         self.SPARK_CONF_S3.update({
             'spark.hadoop.fs.s3a.access.key': s3_access_key,
             'spark.hadoop.fs.s3a.secret.key': s3_secret_key,
             'spark.hadoop.fs.s3a.endpoint': s3_endpoint,
-            'spark.hadoop.fs.s3a.connection.ssl.enabled': str(s3_use_ssl).lower()
+            'spark.hadoop.fs.s3a.connection.ssl.enabled': s3_use_ssl
         })
 
         # Setting initial attribute values with updated default settings
@@ -48,10 +53,6 @@ class ConfSparkS3(SparkConf):
         # Configure Spark with S3 configurations
         for key, value in self.SPARK_CONF_S3.items():
             self.set(key, value)
-
-    @property
-    def conf_s3(self):
-        return self.SPARK_CONF_S3
 
     @staticmethod
     def get_conf_s3_template():
@@ -179,36 +180,34 @@ class ConfSparkS3(SparkConf):
         return self.set("spark.hadoop.fs.s3a.proxy.port", value)
 
     @property
-    def spark_hadoop_fs_s3a_path_style_access(self) -> Optional[bool]:
+    def spark_hadoop_fs_s3a_path_style_access(self) -> Optional[str]:
         """Get the value of 'spark.hadoop.fs.s3a.path.style.access'."""
-        value = self.get("spark.hadoop.fs.s3a.path.style.access")
-        return str(value).lower() == 'true'
+        return self.get("spark.hadoop.fs.s3a.path.style.access")
 
     @spark_hadoop_fs_s3a_path_style_access.setter
-    def spark_hadoop_fs_s3a_path_style_access(self, value: bool) -> SparkConf:
+    def spark_hadoop_fs_s3a_path_style_access(self, value: str) -> SparkConf:
         """
         Set the value of 'spark.hadoop.fs.s3a.path.style.access'.
         Whether to use path style access for S3. Path style access means the bucket name is part of the URL path
         rather than the hostname. This can be useful for some S3-compatible services like MinIO.
         """
-        return self.set("spark.hadoop.fs.s3a.path.style.access", str(value).lower())
+        return self.set("spark.hadoop.fs.s3a.path.style.access", value)
 
     @property
-    def spark_hadoop_fs_s3a_connection_ssl_enabled(self) -> Optional[bool]:
+    def spark_hadoop_fs_s3a_connection_ssl_enabled(self) -> Optional[str]:
         """Get the value of 'spark.hadoop.fs.s3a.connection.ssl.enabled'."""
-        value = self.get("spark.hadoop.fs.s3a.connection.ssl.enabled")
-        return str(value).lower() == 'true'
+        return self.get("spark.hadoop.fs.s3a.connection.ssl.enabled")
 
     @spark_hadoop_fs_s3a_connection_ssl_enabled.setter
-    def spark_hadoop_fs_s3a_connection_ssl_enabled(self, value: bool) -> SparkConf:
+    def spark_hadoop_fs_s3a_connection_ssl_enabled(self, value: str) -> SparkConf:
         """
         Set the value of 'spark.hadoop.fs.s3a.connection.ssl.enabled'.
         Whether to use SSL for S3 connections. This determines if connections to S3 should be encrypted using SSL.
         """
-        return self.set("spark.hadoop.fs.s3a.connection.ssl.enabled", str(value).lower())
+        return self.set("spark.hadoop.fs.s3a.connection.ssl.enabled", value)
 
     @property
-    def spark_jars_packages(self) -> Optional[bool]:
+    def spark_jars_packages(self) -> Optional[str]:
         """Get the value of 'spark.jars.packages'."""
         return self.get("spark.jars.packages")
 
@@ -226,21 +225,30 @@ class SparkConfS3Kubernet(ConfSparkS3):
     SPARK_CONF_KUBERNETES = SPARK_CONF_KUBERNETES_TEMPLATE.copy()
 
     def __init__(self,
-                 spark_app_name: str = settings.SPARK_APP_NAME,
-                 s3_endpoint: str = settings.S3_ENDPOINT,
-                 s3_access_key: str = settings.S3_ACCESS_KEY,
-                 s3_secret_key: str = settings.S3_SECRET_KEY,
-                 s3_use_ssl: str = settings.S3_USE_SSL,
-                 spark_master: str = settings.SPARK_MASTER,
-                 spark_driver_host: str = settings.SPARK_DRIVER_HOST,
-                 spark_kubernetes_container_image: str = settings.SPARK_KUBERNETES_CONTAINER_IMAGE):
-        super().__init__(s3_endpoint, s3_access_key, s3_secret_key, s3_use_ssl)
+                 spark_app_name: str = None,
+                 s3_endpoint: str = None,
+                 s3_access_key: str = None,
+                 s3_secret_key: str = None,
+                 s3_use_ssl: str = None,
+                 spark_master: str = None,
+                 spark_driver_host: str = None,
+                 spark_kubernetes_container_image: str = None):
 
+        settings = _get_settings()
+        super().__init__(
+                spark_app_name or settings.SPARK_APP_NAME,
+                s3_endpoint or settings.S3_ENDPOINT,
+                s3_access_key or settings.S3_ACCESS_KEY,
+                s3_secret_key or settings.S3_SECRET_KEY,
+                s3_use_ssl or settings.S3_USE_SSL
+                )
         # Initialize Kubernetes settings
-        self._set_initial_value_kubernetes(spark_app_name, spark_master, spark_driver_host,
-                                           spark_kubernetes_container_image)
+        self._set_initial_value_kubernetes(spark_master or settings.SPARK_MASTER,
+                                           spark_driver_host or settings.SPARK_DRIVER_HOST,
+                                           spark_kubernetes_container_image or settings.SPARK_KUBERNETES_CONTAINER_IMAGE
+                                           )
 
-    def _set_initial_value_kubernetes(self, spark_app_name: str, spark_master: str, spark_driver_host: str,
+    def _set_initial_value_kubernetes(self, spark_master: str, spark_driver_host: str,
                                       spark_kubernetes_container_image: str):
         # Updating default settings for Kubernetes
         self.SPARK_CONF_KUBERNETES.update({
@@ -268,10 +276,6 @@ class SparkConfS3Kubernet(ConfSparkS3):
         # Configure Spark with Kubernetes configurations
         for key, value in self.SPARK_CONF_KUBERNETES.items():
             self.set(key, value)
-
-    @property
-    def conf_kubernetes(self):
-        return self.SPARK_CONF_KUBERNETES
 
     @staticmethod
     def get_conf_kubernetes_template():
