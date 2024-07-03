@@ -74,3 +74,17 @@ class MinioBucket(Bucket):
         Iterator[MinioObject]: Iterator of objects.
         """
         return self._client.list_objects(self._name, prefix=prefix, recursive=recursive)
+
+
+def get_object(self, object_name: str) -> MinioObject:
+    """
+    Get an object by its path.
+
+    Parameters:
+    object_path (str): Path of the object to retrieve.
+
+    Returns:
+    MinioObject: The retrieved object.
+    """
+    obj = self._client.get_object(self.name, object_name)
+    return MinioObject(self._client, self.name, object_name, obj.last_modified, obj.etag, obj.length, obj.content_type)
