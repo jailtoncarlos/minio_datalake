@@ -2,7 +2,7 @@
 import unittest
 from io import BytesIO
 
-from minio_spark import MinIOSpark
+from minio_spark import MinioSpark
 
 
 class TestMinIOBucket(unittest.TestCase):
@@ -10,7 +10,7 @@ class TestMinIOBucket(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            cls.datalake = MinIOSpark()
+            cls.datalake = MinioSpark()
             cls.bucket_name = 'test-bucket'  # Ajuste o nome do bucket para estar em conformidade
             cls.bucket = cls.datalake.get_bucket(cls.bucket_name)
 

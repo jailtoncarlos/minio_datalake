@@ -26,7 +26,7 @@ def split_minio_path(path: str) -> tuple:
     return parts[0], parts[1]
 
 
-class MinIOUtils:
+class MinioUtils:
     @staticmethod
     def validate_bucket_name(bucket_name: str) -> bool:
         """

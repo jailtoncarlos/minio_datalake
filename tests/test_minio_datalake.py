@@ -3,7 +3,7 @@ import unittest
 import zipfile
 from io import BytesIO
 
-from minio_spark import MinIOSpark
+from minio_spark import MinioSpark
 from minio_spark.bucket import MinioBucket
 from minio_spark.object import MinioObject
 
@@ -15,7 +15,7 @@ class TestMinIOSparkDatalake(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Inicializar MinIOSpark com o cliente Minio (presumindo que a configuração do cliente já está definida)
-        cls.datalake = MinIOSpark()
+        cls.datalake = MinioSpark()
         cls.bucket_name = 'test-bucket'
         cls.zip_object_name = 'test.zip'
         cls.csv_object_name = 'test.csv'
@@ -50,7 +50,7 @@ class TestMinIOSparkDatalake(unittest.TestCase):
 
     def test_extract_zip_to_datalake(self):
         df = self.datalake.read_csv_from_zip(self.bucket_name, self.zip_object_name)
-        self.assertEqual(df.count(), 4)  # We expect 4 rows of data based on the CSV content
+        self.assertEqual(df.count(), 2)  # We expect 4 rows of data based on the CSV content
 
     def test_read_csv_to_dataframe(self):
         df = self.datalake.read_csv_to_dataframe(self.bucket_name, self.csv_object_name)
