@@ -11,7 +11,7 @@ S3_BUCKET_CURATED_NAME = os.getenv('S3_BUCKET_CURATED_NAME', 'curated')
 S3_ENDPOINT = os.getenv('S3_ENDPOINT', 'minio:9000')  # Use the service name defined in docker-compose.yml
 S3_ACCESS_KEY = os.getenv('S3_ACCESS_KEY', 'minioadmin')
 S3_SECRET_KEY = os.getenv('S3_SECRET_KEY', 'minioadmin')
-S3_USE_SSL = False
+S3_USE_SSL = 'false'
 
 SPARK_CONF_S3_TEMPLATE.update({
     'spark.hadoop.fs.s3a.access.key': S3_ACCESS_KEY,

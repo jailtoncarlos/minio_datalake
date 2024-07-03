@@ -31,7 +31,7 @@ class MinIOSpark:
         self._client = Minio(endpoint=conf.spark_hadoop_fs_s3a_endpoint,
                              access_key=conf.spark_hadoop_fs_s3a_access_key,
                              secret_key=conf.spark_hadoop_fs_s3a_secret_key,
-                             secure=conf.spark_hadoop_fs_s3a_connection_ssl_enabled)
+                             secure=conf.spark_hadoop_fs_s3a_connection_ssl_enabled=='true')
 
         if not isinstance(conf, ConfSparkS3):
             raise TypeError("self._conf_spark must be an instance of SparkConf")
