@@ -1,7 +1,5 @@
 from typing import Optional
 from pyspark import SparkConf
-
-
 from minio_spark.conf_template import SPARK_CONF_S3_TEMPLATE, SPARK_CONF_KUBERNETES_TEMPLATE
 
 def _get_settings():

@@ -1,15 +1,14 @@
-# arquivo bucket.py
-
-from typing import Iterator, Optional, List, BinaryIO
-
-from minio import Minio
-from minio.datatypes import Object
+from typing import BinaryIO, Iterator, Optional
+from datetime import datetime
+from minio.datatypes import Bucket
 from minio.helpers import ObjectWriteResult
+from minio.time import from_iso8601utc
 
+from minio_spark.object import MinioObject
 from minio_spark.utils import MinIOUtils
 
 
-class MinIOBucket:
+class MinioBucket(Bucket):
     """
     Class to represent a MinIO bucket.
 
@@ -18,38 +17,41 @@ class MinIOBucket:
     bucket_name: Name of the bucket.
     """
 
-    def __init__(self, client: Minio, bucket_name: str):
-        self._client = client
-        self._bucket_name = bucket_name
+    def __init__(self, client, name: str, creation_date: Optional[datetime] = None):
+        from minio_spark.client import MinioClient  # Local import to avoid circular import
+        if not isinstance(client, MinioClient):
+            raise ValueError("client must be an instance of MinioClient")
 
-    @property
-    def bucket_name(self) -> str:
-        return self._bucket_name
+        self._client = client
+        super().__init__(name, creation_date or datetime.now())
+
+    def __str__(self):
+        return f"MinioBucket({self._name}, {self._creation_date})"
 
     def make(self, *args, **kwargs):
         """
         Create a bucket if it does not exist, ensuring the name is valid.
         """
-        if not MinIOUtils.validate_bucket_name(self._bucket_name):
-            raise ValueError(f"Invalid bucket name: {self._bucket_name}")
+        if not MinIOUtils.validate_bucket_name(self._name):
+            raise ValueError(f"Invalid bucket name: {self._name}")
 
-        self._client.make_bucket(self._bucket_name, *args, **kwargs)
+        self._client.make_bucket(self._name, *args, **kwargs)
 
     def remove(self):
-        self._client.remove_bucket(self._bucket_name)
+        self._client.remove_bucket(self._name)
 
     def put_object(
             self,
             object_name: str,
             data: BinaryIO,
             length: int, *args, **kwargs) -> ObjectWriteResult:
-        return self._client.put_object(self._bucket_name, object_name, data, length, *args, **kwargs)
+        return self._client.put_object(self._name, object_name, data, length, *args, **kwargs)
 
     def remove_object(
             self,
             object_name: str, *args, **kwargs
     ):
-        self._client.remove_object(self._bucket_name, object_name, *args, **kwargs)
+        self._client.remove_object(self._name, object_name, *args, **kwargs)
 
     def exists(self) -> bool:
         """
@@ -58,9 +60,9 @@ class MinIOBucket:
         Returns:
         bool: True if the bucket exists, False otherwise.
         """
-        return self._client.bucket_exists(self._bucket_name)
+        return self._client.bucket_exists(self._name)
 
-    def list_objects(self, prefix: Optional[str] = None, recursive: bool = False) -> Iterator[Object]:
+    def list_objects(self, prefix: Optional[str] = None, recursive: bool = False) -> Iterator[MinioObject]:
         """
         List objects in the bucket.
 
@@ -69,20 +71,6 @@ class MinIOBucket:
         recursive (bool): If True, list objects recursively.
 
         Returns:
-        Iterator[Object]: Iterator of objects.
+        Iterator[MinioObject]: Iterator of objects.
         """
-        return self._client.list_objects(self._bucket_name, prefix=prefix, recursive=recursive)
-
-    def list_object_names(self, prefix: Optional[str] = None, recursive: bool = False) -> List[str]:
-        """
-        List names of objects in the bucket.
-
-        Parameters:
-        prefix (str): Prefix of the objects.
-        recursive (bool): If True, list objects recursively.
-
-        Returns:
-        List[str]: List of object names.
-        """
-        objects = self.list_objects(prefix=prefix, recursive=recursive)
-        return [obj.object_name for obj in objects]
+        return self._client.list_objects(self._name, prefix=prefix, recursive=recursive)

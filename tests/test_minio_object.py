@@ -3,7 +3,7 @@ import unittest
 from io import BytesIO
 
 from minio_spark import MinIOSpark
-from minio_spark.object import MinIOObject
+from minio_spark.object import MinioObject
 
 
 class TestMinIOObject(unittest.TestCase):
@@ -39,7 +39,7 @@ class TestMinIOObject(unittest.TestCase):
 
     def test_remove(self):
         data = BytesIO(b'Temporary Data')
-        temp_object = MinIOObject(self.object.client, self.bucket_name, 'temp-object')
+        temp_object = MinioObject(self.object.client, self.bucket_name, 'temp-object')
         temp_object.put(data, length=len(data.getvalue()))
         self.assertTrue(temp_object.exists())
         temp_object.remove()

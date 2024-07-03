@@ -1,10 +1,9 @@
-from typing import BinaryIO
-
-from minio import Minio
+from typing import Optional, BinaryIO
+from datetime import datetime
+from minio.datatypes import Object
 from minio.helpers import ObjectWriteResult
 
-
-class MinIOObject:
+class MinioObject(Object):
     """
     Class to represent a MinIO object.
 
@@ -14,21 +13,31 @@ class MinIOObject:
     object_name: Name of the object.
     """
 
-    def __init__(self, client: Minio, bucket_name: str, object_name: str) -> None:
+    def __init__(self, client,
+                bucket_name: str,
+                object_name: Optional[str],
+                last_modified: Optional[datetime] = None,
+                etag:  Optional[str] = None,
+                size:  Optional[int] = None,
+                content_type:  Optional[str] = None,
+        *args, **kwargs) -> None:
+
+        from minio_spark.client import MinioClient  # Local import to avoid circular import
+        if not isinstance(client, MinioClient):
+            raise ValueError("client must be an instance of MinioClient")
+
+        super().__init__(bucket_name, object_name, last_modified, etag, size, content_type, *args, **kwargs)
         self._client = client
-        self._bucket_name = bucket_name
-        self._object_name = object_name
+
+    def __str__(self):
+        return f"MinioObject({self._bucket_name}, {self._object_name}, {self._last_modified}, {self._etag}, {self._size}, {self._content_type})"
 
     @property
     def client(self):
         return self._client
 
     @property
-    def bucket_name(self):
-        return self._bucket_name
-
-    @property
-    def object_name(self):
+    def name(self):
         return self._object_name
 
     def put(
@@ -58,7 +67,7 @@ class MinIOObject:
         :param file_path: Name of file to download.
 
         """
-        self.client.fget_object(self.bucket_name, self.object_name, file_path, *args, **kwargs)
+        self.client.fget_object(self.bucket_name, self.name, file_path, *args, **kwargs)
 
     def fput(self, file_path: str, *args, **kwargs) -> ObjectWriteResult:
         """
@@ -69,7 +78,7 @@ class MinIOObject:
 
         :return: :class:`ObjectWriteResult` object.
         """
-        return self.client.fput_object(self.bucket_name, self.object_name, file_path, *args, **kwargs)
+        return self.client.fput_object(self.bucket_name, self.name, file_path, *args, **kwargs)
 
     def exists(self) -> bool:
         """
@@ -79,7 +88,7 @@ class MinIOObject:
         bool: True if the object exists, False otherwise.
         """
         try:
-            self.client.stat_object(self.bucket_name, self.object_name)
+            self.client.stat_object(self.bucket_name, self.name)
             return True
         except:
             return False

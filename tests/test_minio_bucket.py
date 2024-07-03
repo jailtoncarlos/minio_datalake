@@ -58,7 +58,7 @@ class TestMinIOBucket(unittest.TestCase):
 
     def test_list_object_names(self):
         """Test listing object names in the bucket."""
-        object_names = self.bucket.list_object_names()
+        object_names = self.list_object_names()
         self.assertEqual(len(object_names), 2)
         self.assertIn('obj1', object_names)
         self.assertIn('obj2', object_names)
@@ -67,10 +67,13 @@ class TestMinIOBucket(unittest.TestCase):
         """Test removing an object from the bucket."""
         data = BytesIO(b'Test remove data')
         self.bucket.put_object('test_remove_object', data, length=len(data.getvalue()))
-        self.assertIn('test_remove_object', self.bucket.list_object_names())
+        self.assertIn('test_remove_object', self.list_object_names())
         self.bucket.remove_object('test_remove_object')
-        self.assertNotIn('test_remove_object', self.bucket.list_object_names())
+        self.assertNotIn('test_remove_object', self.list_object_names())
 
+    def list_object_names(self):
+        objects = self.bucket.list_objects()
+        return [obj.object_name for obj in objects]
 
 if __name__ == '__main__':
     unittest.main()
