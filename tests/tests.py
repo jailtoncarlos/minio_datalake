@@ -40,9 +40,9 @@ class TestMinIODatalake(unittest.TestCase):
     def test_list_buckets(self):
         # List directories in the root of the DataLake
         buckets = self.datalake.client.list_buckets()
-        print("Buckets in the root of the DataLake:")
-        for bucket in buckets:
-            print(bucket.name)
+        # print("Buckets in the root of the DataLake:")
+        # for bucket in buckets:
+        #     print(bucket.name)
         self.assertTrue(len(buckets) > 0, "There should be at least one bucket in the DataLake.")
 
     def test_pagination(self):
@@ -66,9 +66,9 @@ class TestMinIODatalake(unittest.TestCase):
         # Verify that all test objects were listed
         self.assertEqual(len(object_names), num_test_objects, f"Expected {num_test_objects} objects, but found {len(object_names)}.")
 
-        print("Objects listed in 'raw' bucket:")
-        for name in object_names:
-            print(name)
+        # print("Objects listed in 'raw' bucket:")
+        # for name in object_names:
+        #     print(name)
 
 if __name__ == '__main__':
     unittest.main()

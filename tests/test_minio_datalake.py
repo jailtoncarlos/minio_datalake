@@ -4,16 +4,17 @@ import zipfile
 from io import BytesIO
 
 from minio_spark import MinIOSpark
+from minio_spark.bucket import MinioBucket
 from minio_spark.object import MinioObject
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 class TestMinIOSparkDatalake(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Inicializar MinIOSpark com o cliente Minio (presumindo que a configuração do cliente já está definida)
         cls.datalake = MinIOSpark()
         cls.bucket_name = 'test-bucket'
         cls.zip_object_name = 'test.zip'
@@ -59,29 +60,39 @@ class TestMinIOSparkDatalake(unittest.TestCase):
     def test_read_parquet_to_dataframe(self):
         minio_object = MinioObject(self.datalake.client, self.bucket_name, self.csv_object_name)
         df = self.datalake.read_csv_to_dataframe(minio_object)
-        parquet_path = self.datalake.dataframe_to_parquet(df, f'{self.bucket_name}/test.parquet')
-        df_parquet = self.datalake.read_parquet_to_dataframe(
-            MinioObject(self.datalake.client, self.bucket_name, 'test.parquet'))
+        parquet_object = MinioObject(self.datalake.client, self.bucket_name, 'test.parquet')
+        parquet_path = self.datalake.dataframe_to_parquet(df, parquet_object)
+        df_parquet = self.datalake.read_parquet_to_dataframe(parquet_object)
         self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
 
     def test_data_frame_to_parquet(self):
         minio_object = MinioObject(self.datalake.client, self.bucket_name, self.csv_object_name)
         df = self.datalake.read_csv_to_dataframe(minio_object)
-        parquet_path = self.datalake.dataframe_to_parquet(df, f'{self.bucket_name}/test.parquet')
-        df_parquet = self.datalake.spark.read.parquet(f's3a://{parquet_path}')
+        parquet_object = MinioObject(self.datalake.client, self.bucket_name, 'test.parquet')
+        parquet_path = self.datalake.dataframe_to_parquet(df, parquet_object)
+        df_parquet = self.datalake.spark.read.parquet(f's3a://{self.bucket_name}/test.parquet')
         self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
 
-    def test_ingest_csv_to_datalake(self):
+    def test_ingest_file_to_datalake(self):
         minio_object = MinioObject(self.datalake.client, self.bucket_name, self.csv_object_name)
-        df = self.datalake.ingest_csv_to_datalake(minio_object, destination_path=self.bucket_name)
+        df = self.datalake.ingest_file_to_datalake(minio_object, destination_bucket_name=self.bucket_name)
         self.assertIsNotNone(df)
         self.assertEqual(df.count(), 2)
 
     def test_unzip(self):
         minio_object = MinioObject(self.datalake.client, self.bucket_name, self.zip_object_name)
-        extracted_objects = self.datalake.unzip(minio_object)
+        extracted_objects = self.datalake.extract_and_upload_zip(minio_object)
         self.assertGreater(len(extracted_objects), 0)
 
+    def test_get_bucket(self):
+        bucket = self.datalake.get_bucket(self.bucket_name)
+        self.assertIsInstance(bucket, MinioBucket)
+        self.assertEqual(bucket.name, self.bucket_name)
+
+    def test_get_object(self):
+        minio_object = self.datalake.get_object(self.bucket_name, self.csv_object_name)
+        self.assertIsInstance(minio_object, MinioObject)
+        self.assertEqual(minio_object.name, self.csv_object_name)
 
 if __name__ == '__main__':
     unittest.main()
