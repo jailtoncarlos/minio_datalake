@@ -7,7 +7,7 @@ services:
     restart: always
     command: start-notebook.sh --NotebookApp.password=sha256:bb8c050b9545:c21d963d0765635c8494c787935802d4511e0411fb3d4a555f45e2ab0a776c80
     volumes:
-      - ../:/home/jovyan/minio_datalake # Mount the project directory
+      - ../:/home/jovyan/minio_spark # Mount the project directory
     environment:
       - GRANT_SUDO=yes
       - JUPYTER_ENABLE_LAB=yes

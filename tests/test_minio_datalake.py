@@ -1,19 +1,20 @@
-import unittest
-from io import BytesIO
-import zipfile
-from minio_datalake.datalake import MinIOSparkDatalake
-from minio_datalake.object import MinIOObject
-import minio_datalake.settings as settings
 import logging
+import unittest
+import zipfile
+from io import BytesIO
+
+from minio_spark import MinIOSpark
+from minio_spark.object import MinIOObject
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class TestMinIOSparkDatalake(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.datalake = MinIOSparkDatalake(settings.MINIO_ENDPOINT, settings.MINIO_ACCESS_KEY, settings.MINIO_SECRET_KEY, settings.MINIO_USE_SSL)
+        cls.datalake = MinIOSpark()
         cls.bucket_name = 'test-bucket'
         cls.zip_object_name = 'test.zip'
         cls.csv_object_name = 'test.csv'
@@ -59,7 +60,8 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.csv_object_name)
         df = self.datalake.read_csv_to_dataframe(minio_object)
         parquet_path = self.datalake.dataframe_to_parquet(df, f'{self.bucket_name}/test.parquet')
-        df_parquet = self.datalake.read_parquet_to_dataframe(MinIOObject(self.datalake.client, self.bucket_name, 'test.parquet'))
+        df_parquet = self.datalake.read_parquet_to_dataframe(
+            MinIOObject(self.datalake.client, self.bucket_name, 'test.parquet'))
         self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
 
     def test_data_frame_to_parquet(self):
@@ -79,6 +81,7 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         minio_object = MinIOObject(self.datalake.client, self.bucket_name, self.zip_object_name)
         extracted_objects = self.datalake.unzip(minio_object)
         self.assertGreater(len(extracted_objects), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

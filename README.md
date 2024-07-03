@@ -63,24 +63,24 @@ export MINIO_SECRET_KEY='minioadmin'
 ## Usage
 
 ```python
-from minio_datalake.datalake import MinIOSparkDatalake
-import minio_datalake.settings as settings
+from minio_spark.datalake import MinIOSparkDatalake
+import minio_spark.settings as settings
 
 # Create an instance of MinIODatalake
 datalake = MinIOSparkDatalake()
 
 # Get bucket instances
-raw_bucket = datalake.get_bucket(settings.MINIO_BUCKET_RAW_NAME)
-stage_bucket = datalake.get_bucket(settings.MINIO_BUCKET_STAGE_NAME)
+raw_bucket = datalake.get_bucket(settings.S3_BUCKET_RAW_NAME)
+stage_bucket = datalake.get_bucket(settings.S3_BUCKET_STAGE_NAME)
 
 # Check if the 'raw' bucket exists, if not create it
 if not raw_bucket.bucket_exists():
-    print(f"Creating bucket '{settings.MINIO_BUCKET_RAW_NAME}'...")
+    print(f"Creating bucket '{settings.S3_BUCKET_RAW_NAME}'...")
     raw_bucket.create()
 
 # Check if the 'stage' bucket exists, if not create it
 if not stage_bucket.bucket_exists():
-    print(f"Creating bucket '{settings.MINIO_BUCKET_STAGE_NAME}'...")
+    print(f"Creating bucket '{settings.S3_BUCKET_STAGE_NAME}'...")
     stage_bucket.create()
 
 # List directories in the root of the DataLake

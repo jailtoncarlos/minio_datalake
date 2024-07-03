@@ -1,6 +1,8 @@
 from typing import BinaryIO
+
 from minio import Minio
 from minio.helpers import ObjectWriteResult
+
 
 class MinIOObject:
     """
@@ -11,6 +13,7 @@ class MinIOObject:
     bucket_name: Name of the bucket.
     object_name: Name of the object.
     """
+
     def __init__(self, client: Minio, bucket_name: str, object_name: str) -> None:
         self._client = client
         self._bucket_name = bucket_name
@@ -29,9 +32,9 @@ class MinIOObject:
         return self._object_name
 
     def put(
-        self,
-        data: BinaryIO,
-        length: int, *args, **kwargs) -> ObjectWriteResult:
+            self,
+            data: BinaryIO,
+            length: int, *args, **kwargs) -> ObjectWriteResult:
         """
         :param data: An object having callable read() returning bytes object.
         :param length: Data size; -1 for unknown size and set valid part_size.
@@ -41,8 +44,8 @@ class MinIOObject:
         return self.client.put_object(self.bucket_name, self._object_name, data, length, *args, **kwargs)
 
     def remove(
-        self,
-        *args, **kwargs):
+            self,
+            *args, **kwargs):
         """
         Remove an object.
         """

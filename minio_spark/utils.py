@@ -1,6 +1,7 @@
 import os
 import re
 
+
 def split_file_path(filepath):
     base_dir, filename = os.path.split(filepath)
     file_name_without_extension, file_extension = os.path.splitext(filename)
@@ -23,7 +24,6 @@ def split_minio_path(path: str) -> tuple:
     if len(parts) != 2:
         raise ValueError("Path must be in the format '/bucket_name/object_name'")
     return parts[0], parts[1]
-
 
 
 class MinIOUtils:

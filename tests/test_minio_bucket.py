@@ -1,17 +1,16 @@
 # arquivo test_minio_bucket.py
 import unittest
-from unittest.mock import patch
-from minio_datalake.bucket import MinIOBucket
-import minio_datalake.settings as settings
 from io import BytesIO
-from minio_datalake.datalake import MinIOSparkDatalake
+
+from minio_spark import MinIOSpark
+
 
 class TestMinIOBucket(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         try:
-            cls.datalake = MinIOSparkDatalake(settings.MINIO_ENDPOINT, settings.MINIO_ACCESS_KEY, settings.MINIO_SECRET_KEY, settings.MINIO_USE_SSL)
+            cls.datalake = MinIOSpark()
             cls.bucket_name = 'test-bucket'  # Ajuste o nome do bucket para estar em conformidade
             cls.bucket = cls.datalake.get_bucket(cls.bucket_name)
 
@@ -71,6 +70,7 @@ class TestMinIOBucket(unittest.TestCase):
         self.assertIn('test_remove_object', self.bucket.list_object_names())
         self.bucket.remove_object('test_remove_object')
         self.assertNotIn('test_remove_object', self.bucket.list_object_names())
+
 
 if __name__ == '__main__':
     unittest.main()
