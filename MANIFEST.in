@@ -1,4 +1,4 @@
 include README.md
 recursive-include tests/ *
-include minio_datalake/settings.py
+include minio_spark/settings.py
 global-exclude __pycache__
