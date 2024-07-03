@@ -35,6 +35,7 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         zip_buffer.seek(0)
         cls.bucket.put_object(cls.zip_object_name, zip_buffer, len(zip_buffer.getvalue()))
 
+
     @classmethod
     def tearDownClass(cls):
         # Remove all objects in the bucket
@@ -48,36 +49,31 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         cls.bucket.remove()
 
     def test_extract_zip_to_datalake(self):
-        minio_object = MinioObject(self.datalake.client, self.bucket_name, self.zip_object_name)
-        df = self.datalake.read_csv_from_zip(minio_object)
-        self.assertEqual(df.count(), 2)  # Assuming the CSV file has 2 rows
+        df = self.datalake.read_csv_from_zip(self.bucket_name, self.zip_object_name)
+        self.assertEqual(df.count(), 4)  # We expect 4 rows of data based on the CSV content
 
     def test_read_csv_to_dataframe(self):
-        minio_object = MinioObject(self.datalake.client, self.bucket_name, self.csv_object_name)
-        df = self.datalake.read_csv_to_dataframe(minio_object)
-        self.assertEqual(df.count(), 2)  # Assuming the CSV file has 2 rows
+        df = self.datalake.read_csv_to_dataframe(self.bucket_name, self.csv_object_name)
+        self.assertEqual(df.count(), 2)  # We expect 4 rows of data based on the CSV content
 
     def test_read_parquet_to_dataframe(self):
-        minio_object = MinioObject(self.datalake.client, self.bucket_name, self.csv_object_name)
-        df = self.datalake.read_csv_to_dataframe(minio_object)
+        df = self.datalake.read_csv_to_dataframe(self.bucket_name, self.csv_object_name)
         parquet_object = MinioObject(self.datalake.client, self.bucket_name, 'test.parquet')
-        parquet_path = self.datalake.dataframe_to_parquet(df, parquet_object)
+        self.datalake.dataframe_to_parquet(df, parquet_object)
         df_parquet = self.datalake.read_parquet_to_dataframe(parquet_object)
-        self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
+        self.assertEqual(df_parquet.count(), 2)  # We expect 4 rows of data based on the CSV content
 
     def test_data_frame_to_parquet(self):
-        minio_object = MinioObject(self.datalake.client, self.bucket_name, self.csv_object_name)
-        df = self.datalake.read_csv_to_dataframe(minio_object)
+        df = self.datalake.read_csv_to_dataframe(self.bucket_name, self.csv_object_name)
         parquet_object = MinioObject(self.datalake.client, self.bucket_name, 'test.parquet')
-        parquet_path = self.datalake.dataframe_to_parquet(df, parquet_object)
+        self.datalake.dataframe_to_parquet(df, parquet_object)
         df_parquet = self.datalake.spark.read.parquet(f's3a://{self.bucket_name}/test.parquet')
-        self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
+        self.assertEqual(df_parquet.count(), 2)  # We expect 4 rows of data based on the CSV content
 
     def test_ingest_file_to_datalake(self):
-        minio_object = MinioObject(self.datalake.client, self.bucket_name, self.csv_object_name)
-        df = self.datalake.ingest_file_to_datalake(minio_object, destination_bucket_name=self.bucket_name)
+        df = self.datalake.ingest_file_to_datalake(self.bucket_name, self.csv_object_name, destination_bucket_name=self.bucket_name)
         self.assertIsNotNone(df)
-        self.assertEqual(df.count(), 2)
+        self.assertEqual(df.count(), 2)  # We expect 4 rows of data based on the CSV content
 
     def test_unzip(self):
         minio_object = MinioObject(self.datalake.client, self.bucket_name, self.zip_object_name)

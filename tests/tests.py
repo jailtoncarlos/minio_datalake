@@ -7,17 +7,25 @@ from io import BytesIO
 
 # Configurar logging para exibir apenas mensagens de debug do próprio teste
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-logger.handlers = [handler]
+# logger.setLevel(logging.DEBUG)
+# handler = logging.StreamHandler()
+# formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+# handler.setFormatter(formatter)
+# logger.handlers = [handler]
 
 class TestMinIODatalake(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.datalake = MinIOSpark()
+
+    @classmethod
+    def tearDownClass(cls):
+        raw_bucket = cls.datalake.get_bucket(settings.S3_BUCKET_RAW_NAME)
+        # Remove all objects in the bucket
+        objects_to_delete = [obj.object_name for obj in raw_bucket.list_objects(recursive=True)]
+        for obj_name in objects_to_delete:
+            raw_bucket.remove_object(obj_name)
 
     def test_buckets_exist_or_create(self):
         raw_bucket = self.datalake.get_bucket(settings.S3_BUCKET_RAW_NAME)
@@ -65,10 +73,6 @@ class TestMinIODatalake(unittest.TestCase):
 
         # Verify that all test objects were listed
         self.assertEqual(len(object_names), num_test_objects, f"Expected {num_test_objects} objects, but found {len(object_names)}.")
-
-        # print("Objects listed in 'raw' bucket:")
-        # for name in object_names:
-        #     print(name)
 
 if __name__ == '__main__':
     unittest.main()
