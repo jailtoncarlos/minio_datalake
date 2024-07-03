@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
 import logging
-from minio_datalake.datalake import MinIOSparkDatalake
-from minio_datalake import settings as settings
+from minio_spark import MinIOSpark
+from minio_spark import settings as settings
 
 
 # Configurar logging para exibir apenas mensagens de debug do próprio teste
@@ -18,25 +18,25 @@ class TestMinIODatalake(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.datalake = MinIOSparkDatalake()
+        cls.datalake = MinIOSpark()
 
     def test_buckets_exist_or_create(self):
-        raw_bucket = self.datalake.get_bucket(settings.MINIO_BUCKET_RAW_NAME)
-        stage_bucket = self.datalake.get_bucket(settings.MINIO_BUCKET_STAGE_NAME)
+        raw_bucket = self.datalake.get_bucket(settings.S3_BUCKET_RAW_NAME)
+        stage_bucket = self.datalake.get_bucket(settings.S3_BUCKET_STAGE_NAME)
 
         # Check if the 'raw' bucket exists, if not create it
         if not raw_bucket.exists():
-            print(f"Creating bucket '{settings.MINIO_BUCKET_RAW_NAME}'...")
+            print(f"Creating bucket '{settings.S3_BUCKET_RAW_NAME}'...")
             raw_bucket.create()
 
         # Check if the 'stage' bucket exists, if not create it
         if not stage_bucket.exists():
-            print(f"Creating bucket '{settings.MINIO_BUCKET_STAGE_NAME}'...")
+            print(f"Creating bucket '{settings.S3_BUCKET_STAGE_NAME}'...")
             stage_bucket.create()
 
         # Verify that the buckets now exist
-        self.assertTrue(raw_bucket.exists(), f"Bucket '{settings.MINIO_BUCKET_RAW_NAME}' should exist.")
-        self.assertTrue(stage_bucket.exists(), f"Bucket '{settings.MINIO_BUCKET_STAGE_NAME}' should exist.")
+        self.assertTrue(raw_bucket.exists(), f"Bucket '{settings.S3_BUCKET_RAW_NAME}' should exist.")
+        self.assertTrue(stage_bucket.exists(), f"Bucket '{settings.S3_BUCKET_STAGE_NAME}' should exist.")
 
     def test_list_buckets(self):
         # List directories in the root of the DataLake

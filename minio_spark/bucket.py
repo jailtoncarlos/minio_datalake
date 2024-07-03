@@ -1,13 +1,12 @@
 # arquivo bucket.py
 
-import re
 from typing import Iterator, Optional, List, BinaryIO
 
 from minio import Minio
 from minio.datatypes import Object
 from minio.helpers import ObjectWriteResult
 
-from minio_datalake.utils import MinIOUtils
+from minio_spark.utils import MinIOUtils
 
 
 class MinIOBucket:
@@ -18,6 +17,7 @@ class MinIOBucket:
     client: Instance of the MinIO client.
     bucket_name: Name of the bucket.
     """
+
     def __init__(self, client: Minio, bucket_name: str):
         self._client = client
         self._bucket_name = bucket_name
@@ -39,16 +39,15 @@ class MinIOBucket:
         self._client.remove_bucket(self._bucket_name)
 
     def put_object(
-        self,
-        object_name: str,
-        data: BinaryIO,
-        length: int, *args, **kwargs)-> ObjectWriteResult:
-
+            self,
+            object_name: str,
+            data: BinaryIO,
+            length: int, *args, **kwargs) -> ObjectWriteResult:
         return self._client.put_object(self._bucket_name, object_name, data, length, *args, **kwargs)
 
     def remove_object(
-        self,
-        object_name: str, *args, **kwargs
+            self,
+            object_name: str, *args, **kwargs
     ):
         self._client.remove_object(self._bucket_name, object_name, *args, **kwargs)
 

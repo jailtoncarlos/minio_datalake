@@ -7,7 +7,7 @@
 # To specify a test file:
 # ./run_tests.sh -f test_specific_file.py
 # To specify a test file without rebuilding the Docker image:
-# ./run_tests.sh --no-build -f test_minio_datalake.py
+# ./run_tests.sh --no-build -f test_minio_spark.py
 
 # Default value for building the Docker image
 BUILD_IMAGE=true
@@ -40,10 +40,10 @@ done
 # Check if a specific test file was provided as an argument
 if [ -n "$TEST_FILE" ]; then
   echo "Running specified test file: $TEST_FILE in the jupyterlab-pyspark container..."
-  docker-compose -f docker/docker-compose.yaml exec -T jupyterlab-pyspark bash -c "cd /home/jovyan/minio_datalake && export PYTHONPATH=/home/jovyan/minio_datalake && python3 -m unittest discover -s tests -p '$TEST_FILE' -v"
+  docker-compose -f docker/docker-compose.yaml exec -T jupyterlab-pyspark bash -c "cd /home/jovyan/minio_spark && export PYTHONPATH=/home/jovyan/minio_spark && python3 -m unittest discover -s tests -p '$TEST_FILE' -v"
 else
   echo "Running all tests in the jupyterlab-pyspark container..."
-  docker-compose -f docker/docker-compose.yaml exec -T jupyterlab-pyspark bash -c "cd /home/jovyan/minio_datalake && export PYTHONPATH=/home/jovyan/minio_datalake && python3 -m unittest discover -s tests -p 'test*.py' -v"
+  docker-compose -f docker/docker-compose.yaml exec -T jupyterlab-pyspark bash -c "cd /home/jovyan/minio_spark && export PYTHONPATH=/home/jovyan/minio_spark && python3 -m unittest discover -s tests -p 'test*.py' -v"
 fi
 #sleep 30
 exit_code=$?

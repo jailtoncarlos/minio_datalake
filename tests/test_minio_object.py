@@ -1,17 +1,16 @@
 # arquivo test_minio_object.py
 import unittest
 from io import BytesIO
-from unittest.mock import patch
-from minio import Minio
-from minio_datalake.datalake import MinIOSparkDatalake
-from minio_datalake.object import MinIOObject
-import minio_datalake.settings as settings
+
+from minio_spark import MinIOSpark
+from minio_spark.object import MinIOObject
+
 
 class TestMinIOObject(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.datalake = MinIOSparkDatalake(settings.MINIO_ENDPOINT, settings.MINIO_ACCESS_KEY, settings.MINIO_SECRET_KEY, settings.MINIO_USE_SSL)
+        cls.datalake = MinIOSpark()
         cls.bucket_name = 'test-bucket'
         cls.object_name = 'test-object'
         cls.bucket = cls.datalake.get_bucket(cls.bucket_name)
@@ -58,6 +57,7 @@ class TestMinIOObject(unittest.TestCase):
         with open('/tmp/downloaded_testfile.txt', 'r') as f:
             content = f.read()
             self.assertEqual(content, 'This is a test file.')
+
 
 if __name__ == '__main__':
     unittest.main()

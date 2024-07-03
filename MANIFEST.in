@@ -1,0 +1,4 @@
+include README.md
+recursive-include tests/ *
+include minio_datalake/settings.py
+global-exclude __pycache__
