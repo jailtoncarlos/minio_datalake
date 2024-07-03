@@ -1,9 +1,7 @@
 import unittest
-from unittest.mock import patch
 import logging
 from minio_spark import MinIOSpark
-from minio_spark import settings as settings
-
+from minio_spark import settings
 
 # Configurar logging para exibir apenas mensagens de debug do próprio teste
 logger = logging.getLogger()
