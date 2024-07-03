@@ -130,21 +130,22 @@ class MinioSpark:
         response.close()
         return extracted_objects
 
-    def extract_and_upload_zip_by_prefix(self, bucket_name: str, prefix: str, extract_to_bucket: bool = False):
+    def extract_and_upload_zip_by_prefix(self, bucket_name: str, prefix: str, destination_prefix: str,
+                                         extract_to_bucket: bool = False):
         """
         Extracts all ZIP files in a given bucket with a specific prefix and uploads the content back to MinIO.
 
         Parameters:
         - bucket_name (str): Name of the bucket containing the ZIP files.
         - prefix (str): Prefix of the ZIP files to extract.
+        - destination_prefix (str): Prefix under which to store the extracted files in MinIO.
         - extract_to_bucket (bool): If True, extract to the root of the bucket. If False, extract to subdirectories named after each ZIP file.
         """
         objects = self.client.list_objects(bucket_name, prefix=prefix)
         for obj in objects:
             if obj.object_name.endswith('.zip'):
                 minio_object = MinioObject(self.client, bucket_name, obj.object_name)
-                destination_object = MinioObject(self.client, bucket_name, prefix) if extract_to_bucket else None
-                self.extract_and_upload_zip(minio_object, destination_object=destination_object,
+                self.extract_and_upload_zip(minio_object, MinioObject(self.client, bucket_name, destination_prefix),
                                             extract_to_bucket=extract_to_bucket)
 
     def read_csv_from_zip(self, bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv',
@@ -162,11 +163,14 @@ class MinioSpark:
         Returns:
         DataFrame: Spark DataFrame containing data from all CSV files in the ZIPs.
         '''
+        # Define a destination prefix for the extracted files
+        destination_prefix = f"{prefix}_extracted"
+
         # Extract all ZIP files with the given prefix
-        self.extract_and_upload_zip_by_prefix(bucket_name, prefix)
+        self.extract_and_upload_zip_by_prefix(bucket_name, prefix, destination_prefix)
 
         # Define the object representing the folder where CSVs are extracted
-        extracted_folder_object = MinioObject(self.client, bucket_name, os.path.splitext(prefix)[0])
+        extracted_folder_object = MinioObject(self.client, bucket_name, destination_prefix)
 
         # Read the CSV files directly from the extracted folder
         df = self.read_csv_to_dataframe(extracted_folder_object.bucket_name, extracted_folder_object.name,
@@ -189,7 +193,7 @@ class MinioSpark:
         Returns:
         DataFrame: Spark DataFrame.
         '''
-        path = f's3a://{bucket_name}/{prefix}'
+        path = f's3a://{bucket_name}/{prefix}/'  # Adjust the path to read all CSV files in the folder
 
         # Set the format to 'csv' or any other specified format
         reader = self.spark.read.format(format_source)
