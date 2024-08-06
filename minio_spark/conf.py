@@ -28,6 +28,7 @@ class ConfSparkS3(SparkConf):
                                     s3_use_ssl or settings.S3_USE_SSL)
 
     def _set_initial_values_s3(self, s3_endpoint: str, s3_access_key: str, s3_secret_key: str, s3_use_ssl: str):
+
         # Updating default settings for S3 MinIO
         self.SPARK_CONF_S3.update({
             'spark.hadoop.fs.s3a.access.key': s3_access_key,
