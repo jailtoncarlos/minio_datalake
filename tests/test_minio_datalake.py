@@ -64,7 +64,7 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         df = self.datalake.read(self.bucket_name, self.csv_object_name)
         parquet_object = MinioObject(self.datalake.client, self.bucket_name, 'test.parquet')
         self.datalake.to_parquet(df, parquet_object)
-        df_parquet = self.datalake.read(parquet_object, format_source='parquet')
+        df_parquet = self.datalake.read(self.bucket_name, parquet_object.name, format_source='parquet')
         self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
 
     def test_data_frame_to_parquet(self):

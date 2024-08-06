@@ -209,6 +209,7 @@ class MinioSpark:
 
         return df
 
+
     def to_parquet(self, df: DataFrame, minio_object: MinioObject):
         '''
         Convert a Spark DataFrame to Parquet and save it to MinIO.
@@ -252,7 +253,7 @@ class MinioSpark:
         parquet_minio_object = MinioObject(self.client, destination_bucket_name, parquet_object_name)
         if parquet_minio_object.exists():
             # If the Parquet file exists, read from it
-            df = self.read(parquet_minio_object, format_source='parquet')
+            df = self.read(parquet_minio_object.bucket_name, parquet_minio_object.name, format_source='parquet')
         else:
             # If the Parquet file does not exist, process the CSV or ZIP file
             minio_object = self.get_object(bucket_name, prefix)
@@ -271,7 +272,7 @@ class MinioSpark:
             self.to_parquet(df, parquet_minio_object)
 
             # Read the Parquet file back into a DataFrame
-            df = self.read(parquet_minio_object, format_source='parquet')
+            df = self.read(parquet_minio_object.bucket_name, parquet_minio_object.name, format_source='parquet')
 
         # Create a temporary view if specified
         if temp_view_name is None:
