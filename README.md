@@ -118,8 +118,7 @@ df.show()
 ### Reading Parquet Files
 
 ```python
-parquet_object = datalake.get_object('my-bucket', 'my-file.parquet')
-df = datalake.read_parquet(parquet_object)
+df = datalake.read('my-bucket', 'my-prefix/', format_source='parquet')
 df.show()
 ```
 
@@ -155,8 +154,7 @@ for obj in extracted_objects:
 - `get_object(bucket_name: str, object_name: str) -> MinioObject`: Returns an instance of `MinioObject`.
 - `extract_and_upload_zip(minio_object: MinioObject, destination_object: Optional[MinioObject] = None, extract_to_bucket: bool = False) -> List[MinioObject]`: Extracts a ZIP file from MinIO and uploads the content back to MinIO.
 - `extract_and_upload_zip_by_prefix(bucket_name: str, prefix: str, destination_prefix: str, extract_to_bucket: bool = False)`: Extracts all ZIP files in a bucket with a specific prefix and uploads the content back to MinIO.
-- `read_csv(bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv', option_args: Dict[str, Any] = None) -> DataFrame`: Reads CSV files from a folder in MinIO and returns a Spark DataFrame.
-- `read_parquet(minio_object: MinioObject) -> DataFrame`: Reads a Parquet file from MinIO and returns a Spark DataFrame.
+- `read(bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv', option_args: Dict[str, Any] = None) -> DataFrame`: Reads CSV files from a folder in MinIO and returns a Spark DataFrame.
 - `to_parquet(df: DataFrame, minio_object: MinioObject)`: Converts a Spark DataFrame to Parquet and saves it to MinIO.
 - `ingest_file_to_datalake(bucket_name: str, prefix: str, destination_bucket_name: str = 'stage', temp_view_name: str = None, delimiter=',', option_args: Optional[Dict[str, Any]] = None) -> DataFrame`: Ingests a file (CSV or ZIP) from a specified bucket and prefix to the MinIO DataLake, converting it to Parquet and creating a temporary view in Spark.
 
