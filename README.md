@@ -111,7 +111,7 @@ minio_object.remove()
 ### Reading CSV Files
 
 ```python
-df = datalake.read_csv('my-bucket', 'my-prefix/', delimiter=',')
+df = datalake.read('my-bucket', 'my-prefix/', delimiter=',')
 df.show()
 ```
 

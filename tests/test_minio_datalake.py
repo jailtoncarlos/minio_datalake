@@ -53,22 +53,22 @@ class TestMinIOSparkDatalake(unittest.TestCase):
         cls.bucket.remove()
 
     def test_extract_zip_to_datalake(self):
-        df = self.datalake.read_csv_from_zip(self.bucket_name, self.prefix)
+        df = self.datalake.read_from_zip(self.bucket_name, self.prefix)
         self.assertEqual(df.count(), 6)  # Assuming each CSV file has 2 rows and there are 3 ZIP files
 
     def test_read_csv_to_dataframe(self):
-        df = self.datalake.read_csv(self.bucket_name, self.csv_object_name)
+        df = self.datalake.read(self.bucket_name, self.csv_object_name)
         self.assertEqual(df.count(), 2)  # Assuming the CSV file has 2 rows
 
     def test_read_parquet_to_dataframe(self):
-        df = self.datalake.read_csv(self.bucket_name, self.csv_object_name)
+        df = self.datalake.read(self.bucket_name, self.csv_object_name)
         parquet_object = MinioObject(self.datalake.client, self.bucket_name, 'test.parquet')
         self.datalake.to_parquet(df, parquet_object)
-        df_parquet = self.datalake.read_parquet(parquet_object)
+        df_parquet = self.datalake.read(parquet_object, format_source='parquet')
         self.assertEqual(df_parquet.count(), 2)  # Assuming the CSV file has 2 rows
 
     def test_data_frame_to_parquet(self):
-        df = self.datalake.read_csv(self.bucket_name, self.csv_object_name)
+        df = self.datalake.read(self.bucket_name, self.csv_object_name)
         parquet_object = MinioObject(self.datalake.client, self.bucket_name, 'test.parquet')
         self.datalake.to_parquet(df, parquet_object)
         df_parquet = self.datalake.spark.read.parquet(f's3a://{self.bucket_name}/test.parquet')
