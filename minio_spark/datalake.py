@@ -143,8 +143,8 @@ class MinioSpark:
                                             extract_to_bucket=extract_to_bucket)
 
 
-    def read_csv(self, bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv',
-                 option_args: Dict[str, Any] = None) -> DataFrame:
+    def read(self, bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv',
+             option_args: Dict[str, Any] = None) -> DataFrame:
         '''
         Read a CSV file or files from a folder in MinIO and return a Spark DataFrame.
 
@@ -179,8 +179,8 @@ class MinioSpark:
         df = reader.load(path)
         return df
 
-    def read_csv_from_zip(self, bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv',
-                          option_args: Dict[str, Any] = None) -> DataFrame:
+    def read_from_zip(self, bucket_name: str, prefix: str, delimiter=',', format_source: str = 'csv',
+                      option_args: Dict[str, Any] = None) -> DataFrame:
         '''
         Extract ZIP files from a bucket with a specific prefix and read all CSV files into a Spark DataFrame.
 
@@ -204,24 +204,11 @@ class MinioSpark:
         extracted_folder_object = MinioObject(self.client, bucket_name, destination_prefix)
 
         # Read the CSV files directly from the extracted folder
-        df = self.read_csv(extracted_folder_object.bucket_name, extracted_folder_object.name,
-                           delimiter=delimiter, format_source=format_source, option_args=option_args)
+        df = self.read(extracted_folder_object.bucket_name, extracted_folder_object.name,
+                       delimiter=delimiter, format_source=format_source, option_args=option_args)
 
         return df
 
-    def read_parquet(self, minio_object: MinioObject) -> DataFrame:
-        '''
-        Read a Parquet file from MinIO and return a Spark DataFrame.
-
-        Parameters:
-        minio_object (MinioObject): MinioObject representing the Parquet file.
-
-        Returns:
-        DataFrame: Spark DataFrame.
-        '''
-        parquet_path = f's3a://{minio_object.bucket_name}/{minio_object.name}'
-        df = self.spark.read.parquet(parquet_path)
-        return df
 
     def to_parquet(self, df: DataFrame, minio_object: MinioObject):
         '''
@@ -266,7 +253,7 @@ class MinioSpark:
         parquet_minio_object = MinioObject(self.client, destination_bucket_name, parquet_object_name)
         if parquet_minio_object.exists():
             # If the Parquet file exists, read from it
-            df = self.read_parquet(parquet_minio_object)
+            df = self.read(parquet_minio_object.bucket_name, parquet_minio_object.name, format_source='parquet')
         else:
             # If the Parquet file does not exist, process the CSV or ZIP file
             minio_object = self.get_object(bucket_name, prefix)
@@ -275,17 +262,17 @@ class MinioSpark:
                 self.extract_and_upload_zip(minio_object, extract_to_bucket=True)
                 extracted_folder_object = MinioObject(self.client, bucket_name, os.path.splitext(minio_object.name)[0])
                 # Read the extracted CSV files directly from the folder
-                df = self.read_csv(extracted_folder_object.bucket_name, extracted_folder_object.name,
-                                   delimiter=delimiter, format_source='csv', option_args=option_args)
+                df = self.read(extracted_folder_object.bucket_name, extracted_folder_object.name,
+                               delimiter=delimiter, format_source='csv', option_args=option_args)
             else:
                 # If it's a CSV file, read it directly
-                df = self.read_csv(bucket_name, prefix, delimiter=delimiter, option_args=option_args)
+                df = self.read(bucket_name, prefix, delimiter=delimiter, option_args=option_args)
 
             # Save the DataFrame to Parquet
             self.to_parquet(df, parquet_minio_object)
 
             # Read the Parquet file back into a DataFrame
-            df = self.read_parquet(parquet_minio_object)
+            df = self.read(parquet_minio_object.bucket_name, parquet_minio_object.name, format_source='parquet')
 
         # Create a temporary view if specified
         if temp_view_name is None:
